@@ -1,11 +1,13 @@
 export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual';
 
-export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network';
+export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network' | 'page';
 
 export interface ElementInfo {
   selector: string;
   tag: string;
   label: string;
+  /** Heading of the card or section the element sits in, e.g. "LAX → Tokyo (HND)". */
+  area?: string;
 }
 
 export type BreadcrumbType = 'page_view' | 'click' | 'focus' | 'submit' | 'error';
@@ -55,4 +57,6 @@ export interface PulseConfig {
   autoOpen: boolean;
   position: 'bottom-right' | 'bottom-left';
   accentColor?: string;
+  /** Ask the server to write a survey for each moment with a language model, falling back to templates. */
+  ai: boolean;
 }

@@ -113,6 +113,14 @@ Templates live in the `survey_templates` table. For each trigger, the SDK keeps 
 
 Prompts can use placeholders that are filled from the trigger: `{{element.label}}`, `{{page.title}}`, `{{page.path}}`, `{{context.lastField}}`, and any other `context.*` field. Add `|fallback` for values that may be missing, for example `{{context.lastField|this field}}`. A question with `"showIf": {"question": "kind", "in": ["lost"]}` (or `notIn`) only appears for those answers. A site-specific template with the same `slug` as a default overrides it for that site.
 
+### AI-Written Surveys
+
+With `data-ai="true"` on the script tag and `OPENAI_API_KEY` set in `server/.env` (never committed), the server asks a language model to write a 1–3 question survey for each specific moment. Its input is the trigger, the element and the card it sits in, the user's route across pages, and coarse browser context: timezone-based region, time of day, weekday, browser, OS, and device. No geolocation permission is used. Each generated survey, and exactly what the model was shown, is stored in `generated_surveys`, and answers link to it. If the model is unavailable, the SDK falls back to the templates above. Generation is capped at 6 surveys per session.
+
+When a user opens the orb themselves, it first asks why they're there: "I'm lost", "Something went wrong", or "I have a question". The survey then matches that choice and doesn't assume anything broke.
+
+The SDK also detects pages that load with an HTTP error, such as a 404 from a broken link. It keeps the route in `sessionStorage`, so the survey on the error page knows which link on the previous page led there.
+
 Included variants: disabled controls (for a rage click or dead click on a greyed-out button) and failed network requests each get their own survey, instead of the generic one.
 
 ### API

@@ -20,6 +20,7 @@ export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   widget: true,
   autoOpen: true,
   position: 'bottom-right',
+  ai: false,
 };
 
 export function resolveConfig(opts: PulseOptions): PulseConfig {
@@ -48,5 +49,6 @@ export function optionsFromScript(script: HTMLScriptElement): PulseOptions | nul
     ...(d.autoOpen === 'false' && { autoOpen: false }),
     ...(d.position === 'bottom-left' && { position: 'bottom-left' as const }),
     ...(d.accent && { accentColor: d.accent }),
+    ...(d.ai === 'true' && { ai: true }),
   };
 }

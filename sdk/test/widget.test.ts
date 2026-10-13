@@ -111,12 +111,17 @@ describe('survey widget', () => {
     vi.useRealTimers();
   });
 
-  it('lets a stuck user open the help survey from the launcher at any time', async () => {
+  it('asks a user who opens the launcher why they are here before showing a survey', async () => {
     root().querySelector<HTMLButtonElement>('.launcher')!.click();
+    expect(panel()?.querySelector('.title')?.textContent).toBe('What brings you here?');
+    const intents = Array.from(panel()!.querySelectorAll('.intent-title')).map((n) => n.textContent);
+    expect(intents).toEqual(['I’m lost', 'Something went wrong', 'I have a question']);
+    expect(posts('/v1/events')).toHaveLength(0);
+
+    panel()!.querySelectorAll<HTMLButtonElement>('.intent')[0].click();
     await vi.waitFor(() => expect(panel()?.querySelector('.title')?.textContent).toBe('How can we help?'));
-    const manual = posts('/v1/events');
-    expect(manual).toHaveLength(1);
-    expect(manual[0].events.some((e: { type: string }) => e.type === 'manual')).toBe(true);
+    const manual = posts('/v1/events').flatMap((b) => b.events).find((e: { type: string }) => e.type === 'manual');
+    expect(manual.context).toMatchObject({ source: 'launcher', intent: 'lost' });
   });
 
   it('does not count clicks inside the widget as friction on the page', async () => {
