@@ -59,8 +59,55 @@ The project will progress through five areas:
 
 ## Project Status
 
-This repository is currently being set up for the capstone project.
+- **Sprint 2 (Week 3): Trigger heuristics and DB setup.** Done. The SDK detects rage clicks, dead clicks (including clicks on disabled controls), errors (JS exceptions, unhandled promise rejections, `console.error`, failed resources, failed network calls), and idle form abandonment. Every trigger carries the user's trail: pages visited, elements clicked, fields focused. PostgreSQL stores sessions, the trail, friction events, and templated surveys.
+
+## Repository Layout
+
+| Path | What it is |
+| --- | --- |
+| `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
+| `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
 
 ## Getting Started
 
-Follow the project documentation and sprint assignments for setup instructions and implementation guidance.
+Requirements: Node.js 20+ and PostgreSQL 14+ running locally.
+
+```bash
+npm install
+createdb pulse_dev          # once
+npm run db:migrate          # creates tables and seeds the default survey templates
+npm run dev                 # builds the SDK and starts the API on http://localhost:4000
+npm test                    # SDK unit tests + API integration tests (uses a pulse_test database)
+```
+
+Set `DATABASE_URL` (see `server/.env.example`) if your PostgreSQL isn't at `postgres://localhost:5432`.
+
+### Embedding the SDK
+
+Add one line to any page:
+
+```html
+<script src="http://localhost:4000/sdk.js" data-site-key="pk_dev_local" async></script>
+```
+
+`pk_dev_local` is the development site created by the seed migration. Add `data-debug="true"` to log every detected trigger to the browser console.
+
+### API
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /sdk.js` | The minified SDK |
+| `POST /v1/events` | Batched trail and friction events from the SDK (`application/json` or `text/plain` for `sendBeacon`) |
+| `GET /v1/surveys?siteKey=` | Active survey templates for a site (site-specific templates override the defaults) |
+| `GET /health` | Liveness and database check |
+
+### Detection Defaults
+
+| Trigger | Rule |
+| --- | --- |
+| Rage click | 3+ clicks within 700 ms, within 30 px of each other |
+| Dead click | Clicking something interactive produces no DOM change or navigation within 1 s, or the control is disabled |
+| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click |
+| Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
+
+To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.

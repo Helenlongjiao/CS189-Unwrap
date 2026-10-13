@@ -1,0 +1,22 @@
+{
+  "name": "@capstone/pulse-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embeddable, zero-dependency SDK that detects user friction and asks contextual micro-surveys.",
+  "type": "module",
+  "main": "dist/pulse.js",
+  "scripts": {
+    "build": "rollup -c",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.2",
+    "jsdom": "^25.0.1",
+    "rollup": "^4.24.0",
+    "tslib": "^2.8.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}
