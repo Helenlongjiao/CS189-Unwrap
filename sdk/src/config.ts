@@ -16,6 +16,7 @@ export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   cooldownMs: 60_000,
   sameTypeCooldownMs: 5 * 60_000,
   maxPromptsPerSession: 3,
+  limits: true,
   trailSize: 50,
   widget: true,
   autoOpen: true,
@@ -50,5 +51,6 @@ export function optionsFromScript(script: HTMLScriptElement): PulseOptions | nul
     ...(d.position === 'bottom-left' && { position: 'bottom-left' as const }),
     ...(d.accent && { accentColor: d.accent }),
     ...(d.ai === 'true' && { ai: true }),
+    ...(d.limits === 'off' && { limits: false }),
   };
 }

@@ -23,12 +23,13 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
     if (reporting) return;
     reporting = true;
     try {
-      const key = `${err.kind}:${err.message}`;
+      const tap = lastTap();
+      // Without limits, the same error counts again when a new click causes it.
+      const key = `${err.kind}:${err.message}${config.limits ? '' : `:${tap?.at ?? ''}`}`;
       if (seen.has(key)) return;
       seen.add(key);
       breadcrumbs.add('error', { kind: err.kind, message: err.message });
 
-      const tap = lastTap();
       const causedByClick = !!tap && Date.now() - tap.at <= config.errorClickWindowMs;
       const element = causedByClick ? describe(findInteractive(tap!.target) ?? tap!.target) : undefined;
       const input = { element, context: { ...err, causedByClick } };

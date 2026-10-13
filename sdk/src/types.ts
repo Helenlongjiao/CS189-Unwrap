@@ -50,6 +50,8 @@ export interface PulseConfig {
   /** Minimum gap between two prompts of the same trigger type. */
   sameTypeCooldownMs: number;
   maxPromptsPerSession: number;
+  /** Enforce the prompt budget and per-page error dedupe. Turn off for demos so every break prompts. */
+  limits: boolean;
   trailSize: number;
   /** Show the corner launcher and survey panel. Turn off to use detection only. */
   widget: boolean;

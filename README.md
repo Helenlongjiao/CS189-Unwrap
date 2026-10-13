@@ -100,6 +100,7 @@ Add one line to any page:
 | `data-widget="false"` | Detection and recording only, no UI |
 | `data-position="bottom-left"` | Put the launcher in the bottom-left corner |
 | `data-accent="#0f766e"` | Widget accent color |
+| `data-limits="off"` | Demo mode: no cooldowns or per-session cap, and a repeated error prompts again on each new click |
 
 A site can also open the help survey from its own button with `Pulse.open()`.
 

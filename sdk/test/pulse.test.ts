@@ -33,6 +33,18 @@ describe('trigger engine prompt budget', () => {
     vi.useRealTimers();
   });
 
+  it('lets every trigger prompt when limits are off', () => {
+    const engine = new TriggerEngine(
+      resolveConfig({ siteKey: 'pk', endpoint: 'http://x', limits: false, maxPromptsPerSession: 1 }),
+      { send: () => {} } as unknown as Transport,
+      new Breadcrumbs(10),
+    );
+    for (let i = 0; i < 3; i++) {
+      expect(engine.fire('rage_click').eligible).toBe(true);
+      engine.notePrompted('rage_click');
+    }
+  });
+
   it('keeps the budget across page loads in the same tab', () => {
     make().notePrompted('rage_click');
     expect(make().fire('rage_click').eligible).toBe(false);
