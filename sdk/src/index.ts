@@ -16,6 +16,11 @@ export function destroy() {
   instance = null;
 }
 
+/** Opens the "How can we help?" survey from the host site's own UI. */
+export function open(): Promise<void> {
+  return instance ? instance.open() : Promise.resolve();
+}
+
 export function getInstance(): PulseInstance | null {
   return instance;
 }

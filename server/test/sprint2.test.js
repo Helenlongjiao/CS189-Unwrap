@@ -54,7 +54,7 @@ describe('ingestion and survey templates', () => {
     assert.equal(res.status, 200);
     const { templates } = await res.json();
     assert.deepEqual(
-      templates.map((x) => x.triggerType).sort(),
+      [...new Set(templates.map((x) => x.triggerType))].sort(),
       ['dead_click', 'error', 'form_abandon', 'manual', 'rage_click'],
     );
     for (const tpl of templates) assert.ok(tpl.questions.length >= 1 && tpl.questions.length <= 3);

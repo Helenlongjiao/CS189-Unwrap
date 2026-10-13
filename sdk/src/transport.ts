@@ -51,6 +51,12 @@ export class Transport {
     });
   }
 
+  /** Posts one JSON body as `text/plain` (no CORS preflight), surviving page unload. */
+  post(path: string, payload: Record<string, unknown>): Promise<unknown> {
+    const body = JSON.stringify({ siteKey: this.siteKey, sessionId: this.sessionId, ...payload });
+    return this.request(path, { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } });
+  }
+
   async request<T>(path: string, init?: RequestInit): Promise<T> {
     const f = getFetch();
     if (!f) throw new Error('fetch unavailable');

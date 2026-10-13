@@ -12,7 +12,7 @@
     "dev": "node --watch src/index.js",
     "db:migrate": "node scripts/migrate.js",
     "pretest": "createdb pulse_test 2>/dev/null || true",
-    "test": "node --test test/*.test.js"
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

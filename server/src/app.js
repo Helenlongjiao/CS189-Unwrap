@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eventsRouter } from './routes/events.js';
+import { responsesRouter } from './routes/responses.js';
 import { surveysRouter } from './routes/surveys.js';
 import { createSiteResolver } from './sites.js';
 
@@ -42,10 +43,10 @@ export function createApp({ pool, rateLimitPerMinute = 600 }) {
   v1.use(express.json({ limit: '256kb' }));
   v1.use(eventsRouter(deps));
   v1.use(surveysRouter(deps));
+  v1.use(responsesRouter(deps));
   app.use('/v1', v1);
 
   app.use((_req, res) => res.status(404).json({ error: 'not found' }));
-  // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     if (status >= 500) console.error(err);

@@ -15,7 +15,7 @@ export function surveysRouter({ pool, resolveSite }) {
       if (typeof siteKey !== 'string' || !siteKey) throw new HttpError(400, 'siteKey is required');
       const site = await resolveSite(siteKey, req.get('origin'));
       const { rows } = await pool.query(
-        `select distinct on (slug) id, slug, trigger_type, title, questions
+        `select distinct on (slug) id, slug, trigger_type, title, questions, priority, conditions
          from survey_templates
          where active and (site_id = $1 or site_id is null)
          order by slug, site_id nulls last`,
@@ -23,7 +23,15 @@ export function surveysRouter({ pool, resolveSite }) {
       );
       res.set('Cache-Control', 'public, max-age=60');
       res.json({
-        templates: rows.map((r) => ({ id: r.id, slug: r.slug, triggerType: r.trigger_type, title: r.title, questions: r.questions })),
+        templates: rows.map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          triggerType: r.trigger_type,
+          title: r.title,
+          priority: r.priority,
+          conditions: r.conditions,
+          questions: r.questions,
+        })),
       });
     } catch (err) {
       next(err);

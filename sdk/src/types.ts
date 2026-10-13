@@ -49,4 +49,10 @@ export interface PulseConfig {
   sameTypeCooldownMs: number;
   maxPromptsPerSession: number;
   trailSize: number;
+  /** Show the corner launcher and survey panel. Turn off to use detection only. */
+  widget: boolean;
+  /** Open a survey automatically when an eligible trigger fires. */
+  autoOpen: boolean;
+  position: 'bottom-right' | 'bottom-left';
+  accentColor?: string;
 }

@@ -17,6 +17,9 @@ export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   sameTypeCooldownMs: 5 * 60_000,
   maxPromptsPerSession: 3,
   trailSize: 50,
+  widget: true,
+  autoOpen: true,
+  position: 'bottom-right',
 };
 
 export function resolveConfig(opts: PulseOptions): PulseConfig {
@@ -36,5 +39,14 @@ export function optionsFromScript(script: HTMLScriptElement): PulseOptions | nul
   if (!siteKey) return null;
   let endpoint = script.dataset.endpoint;
   if (!endpoint && script.src) endpoint = new URL(script.src, location.href).origin;
-  return { siteKey, endpoint, debug: script.dataset.debug === 'true' };
+  const d = script.dataset;
+  return {
+    siteKey,
+    endpoint,
+    debug: d.debug === 'true',
+    ...(d.widget === 'false' && { widget: false }),
+    ...(d.autoOpen === 'false' && { autoOpen: false }),
+    ...(d.position === 'bottom-left' && { position: 'bottom-left' as const }),
+    ...(d.accent && { accentColor: d.accent }),
+  };
 }

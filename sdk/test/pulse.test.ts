@@ -57,7 +57,7 @@ describe('createPulse', () => {
   });
 
   it('records the user path and ships it to the ingestion endpoint', () => {
-    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test/' });
+    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test/', widget: false });
     click(document.getElementById('help')!);
     pulse.flush();
 
@@ -71,10 +71,10 @@ describe('createPulse', () => {
   });
 
   it('keeps the same session id within a tab', () => {
-    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test' });
+    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test', widget: false });
     const id = pulse.sessionId;
     pulse.destroy();
-    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test' });
+    pulse = createPulse({ siteKey: 'pk_test', endpoint: 'http://api.test', widget: false });
     expect(pulse.sessionId).toBe(id);
   });
 });

@@ -7,6 +7,7 @@ import { formAbandonDetector } from './detectors/formAbandon';
 import { rageClickDetector } from './detectors/rageClick';
 import { describe, findInteractive } from './dom';
 import { onNavigate } from './navigation';
+import { mountSurveys } from './surveys/controller';
 import { onTap, type Tap } from './taps';
 import { Transport } from './transport';
 import { TriggerEngine } from './triggers';
@@ -18,6 +19,8 @@ const DETECTORS: Detector[] = [rageClickDetector, deadClickDetector, errorDetect
 export interface PulseInstance {
   config: PulseConfig;
   sessionId: string;
+  /** Opens the "How can we help?" survey, e.g. from a site's own Help button. */
+  open(): Promise<void>;
   onTrigger(cb: (t: Trigger) => void): () => void;
   flush(): void;
   destroy(): void;
@@ -64,9 +67,13 @@ export function createPulse(opts: PulseOptions): PulseInstance {
   const ctx: DetectorContext = { config, engine, breadcrumbs, transport, onTap, lastTap: () => latestTap };
   DETECTORS.forEach((detector) => teardown.push(detector(ctx)));
 
+  const surveys = config.widget ? mountSurveys(config, engine, transport) : null;
+  if (surveys) teardown.push(() => surveys.destroy());
+
   return {
     config,
     sessionId,
+    open: () => surveys?.open() ?? Promise.resolve(),
     onTrigger: (cb) => engine.onTrigger(cb),
     flush: () => transport.flush(),
     destroy() {
