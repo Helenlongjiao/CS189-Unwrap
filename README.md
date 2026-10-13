@@ -59,8 +59,79 @@ The project will progress through five areas:
 
 ## Project Status
 
-This repository is currently being set up for the capstone project.
+- **Sprint 2 (Week 3): Trigger heuristics and DB setup.** Done. The SDK detects rage clicks, dead clicks (including clicks on disabled controls), errors (JS exceptions, unhandled promise rejections, `console.error`, failed resources, failed network calls), and idle form abandonment. Every trigger carries the user's trail: pages visited, elements clicked, fields focused. PostgreSQL stores sessions, the trail, friction events, and templated surveys.
+- **Sprint 3 (Week 4): Dynamic survey widget.** Done. A small launcher sits in the corner of the page. It opens a survey automatically when friction is detected, and a stuck user can open it at any time. The widget lives in a Shadow DOM, so host-site CSS can't affect it and its CSS can't leak out. A rule engine picks the best survey for each trigger, personalizes it with what happened (for example, “Submit timecards” isn't available yet), and shows follow-up questions based on earlier answers, with at most 3 questions per survey. Answers are stored linked to the friction event and trail that caused them.
+
+## Repository Layout
+
+| Path | What it is |
+| --- | --- |
+| `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
+| `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
 
 ## Getting Started
 
-Follow the project documentation and sprint assignments for setup instructions and implementation guidance.
+Requirements: Node.js 20+ and PostgreSQL 14+ running locally.
+
+```bash
+npm install
+createdb pulse_dev          # once
+npm run db:migrate          # creates tables and seeds the default survey templates
+npm run dev                 # builds the SDK and starts the API on http://localhost:4000
+npm test                    # SDK unit tests + API integration tests (uses a pulse_test database)
+```
+
+Set `DATABASE_URL` (see `server/.env.example`) if your PostgreSQL isn't at `postgres://localhost:5432`.
+
+### Embedding the SDK
+
+Add one line to any page:
+
+```html
+<script src="http://localhost:4000/sdk.js" data-site-key="pk_dev_local" async></script>
+```
+
+`pk_dev_local` is the development site created by the seed migration. Optional attributes:
+
+| Attribute | Effect |
+| --- | --- |
+| `data-debug="true"` | Log every detected trigger to the browser console |
+| `data-auto-open="false"` | Never pop up on its own; users open it from the launcher |
+| `data-widget="false"` | Detection and recording only, no UI |
+| `data-position="bottom-left"` | Put the launcher in the bottom-left corner |
+| `data-accent="#0f766e"` | Widget accent color |
+
+A site can also open the help survey from its own button with `Pulse.open()`.
+
+### Survey Rules
+
+Templates live in the `survey_templates` table. For each trigger, the SDK keeps the templates whose `conditions` all match, then picks the highest `priority`. Ties go to the template with more conditions.
+
+```json
+{ "urlPattern": "/checkout/*", "elementTags": ["button"], "context": { "kind": ["network"] } }
+```
+
+Prompts can use placeholders that are filled from the trigger: `{{element.label}}`, `{{page.title}}`, `{{page.path}}`, `{{context.lastField}}`, and any other `context.*` field. Add `|fallback` for values that may be missing, for example `{{context.lastField|this field}}`. A question with `"showIf": {"question": "kind", "in": ["lost"]}` (or `notIn`) only appears for those answers. A site-specific template with the same `slug` as a default overrides it for that site.
+
+Included variants: disabled controls (for a rage click or dead click on a greyed-out button) and failed network requests each get their own survey, instead of the generic one.
+
+### API
+
+| Method & path | Purpose |
+| --- | --- |
+| `GET /sdk.js` | The minified SDK |
+| `POST /v1/events` | Batched trail and friction events from the SDK (`application/json` or `text/plain` for `sendBeacon`) |
+| `GET /v1/surveys?siteKey=` | Active survey templates for a site, including their rules (site-specific templates override the defaults) |
+| `POST /v1/responses` | A submitted or dismissed survey, linked to its trigger. Answers are validated against the template |
+| `GET /health` | Liveness and database check |
+
+### Detection Defaults
+
+| Trigger | Rule |
+| --- | --- |
+| Rage click | 3+ clicks within 700 ms, within 30 px of each other |
+| Dead click | Clicking something interactive produces no DOM change or navigation within 1 s, or the control is disabled |
+| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click |
+| Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
+
+To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.
