@@ -78,8 +78,9 @@ describe('createPulse', () => {
     expect(url).toBe('http://api.test/v1/events');
     const body = JSON.parse(init.body as string);
     expect(body).toMatchObject({ siteKey: 'pk_test', sessionId: pulse.sessionId });
-    expect(body.events.map((e: { type: string }) => e.type)).toEqual(['page_view', 'click']);
-    expect(body.events[1].data).toMatchObject({ label: 'Help center', tag: 'a', selector: '#help' });
+    const interactions = body.events.filter((e: { kind: string }) => e.kind === 'interaction');
+    expect(interactions.map((e: { type: string }) => e.type)).toEqual(['page_view', 'click']);
+    expect(interactions[1].data).toMatchObject({ label: 'Help center', tag: 'a', selector: '#help' });
   });
 
   it('keeps the same session id within a tab', () => {

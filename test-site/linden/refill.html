@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Linden Clinic · Prescription refill</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="http://localhost:4000/sdk.js?v=5" data-site-key="pk_dev_local" data-limits="off" data-ai="true" data-debug="true" async></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">Linden Clinic</a>
+    <nav><a href="/appointments.html">Appointments</a><a href="/records.html">Records</a><a href="/billing.html">Billing</a><a href="/messages.html">Messages</a></nav>
+    <input type="search" name="search" placeholder="Search the portal" aria-label="Search the portal" />
+  </header>
+  <main>
+    <h1>Prescription refill</h1>
+    <p>Ask the pharmacy to refill a medication your clinician has already prescribed. Refills are reviewed on weekdays.</p>
+    <form class="card">
+      <label>Medication <input name="med" placeholder="Atorvastatin 20mg" /></label>
+      <label>Pharmacy <input name="pharmacy" placeholder="State Street Pharmacy" /></label>
+      <p><button type="button">Request refill</button></p>
+    </form>
+  </main>
+</body>
+</html>

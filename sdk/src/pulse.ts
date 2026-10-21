@@ -4,6 +4,7 @@ import type { Detector, DetectorContext } from './detectors/context';
 import { deadClickDetector } from './detectors/deadClick';
 import { errorDetector } from './detectors/errors';
 import { formAbandonDetector } from './detectors/formAbandon';
+import { lostDetector } from './detectors/lost';
 import { rageClickDetector } from './detectors/rageClick';
 import { describe, findInteractive } from './dom';
 import { onNavigate } from './navigation';
@@ -15,7 +16,7 @@ import { TriggerEngine } from './triggers';
 import type { PulseConfig, Trigger } from './types';
 import { getSessionId, safeUrl } from './util';
 
-const DETECTORS: Detector[] = [rageClickDetector, deadClickDetector, errorDetector, formAbandonDetector];
+const DETECTORS: Detector[] = [rageClickDetector, deadClickDetector, errorDetector, formAbandonDetector, lostDetector];
 
 export interface PulseInstance {
   config: PulseConfig;

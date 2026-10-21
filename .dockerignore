@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+dist
+sdk/dist
+.git
+.github
+coverage
+server/.env
+*.log
+lost-pattern-scores.pdf
+.DS_Store

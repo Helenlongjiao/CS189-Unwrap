@@ -16,6 +16,18 @@ export interface IntentChoice {
   hint: string;
 }
 
+export interface GuideStep {
+  label: string;
+  url: string;
+}
+
+export interface GuideMatch {
+  url: string;
+  title: string;
+  reason: string;
+  steps: GuideStep[];
+}
+
 export interface WidgetOptions {
   position: 'bottom-right' | 'bottom-left';
   accentColor?: string;
@@ -49,6 +61,7 @@ export class Widget {
   private wrap: HTMLElement;
   private launcher: HTMLButtonElement;
   private panel: HTMLElement | null = null;
+  private nudgeEl: HTMLElement | null = null;
   private token = 0;
   private current: { survey: Survey | null; auto: boolean; answers: Answers } | null = null;
   private timers: Array<ReturnType<typeof setTimeout>> = [];
@@ -82,6 +95,85 @@ export class Widget {
 
   isOpen(): boolean {
     return !!this.current;
+  }
+
+  isNudging(): boolean {
+    return !!this.nudgeEl;
+  }
+
+  /** Small prompt for a weak "lost" score. Does not count as the panel being open. */
+  nudge(onYes: () => void, onNo: () => void = () => {}) {
+    this.dismissNudge();
+    const yes = el('button', { class: 'nudge-yes', type: 'button' }, 'Yes');
+    const no = el('button', { class: 'nudge-no', type: 'button' }, 'No');
+    yes.addEventListener('click', () => {
+      this.dismissNudge();
+      onYes();
+    });
+    no.addEventListener('click', () => {
+      this.dismissNudge();
+      onNo();
+    });
+    this.nudgeEl = el(
+      'div',
+      { class: 'nudge', role: 'status' },
+      el('p', {}, 'Need help getting somewhere?'),
+      el('div', { class: 'nudge-row' }, no, yes),
+    );
+    this.wrap.insertBefore(this.nudgeEl, this.launcher);
+  }
+
+  dismissNudge() {
+    this.nudgeEl?.remove();
+    this.nudgeEl = null;
+  }
+
+  /** Asks what the visitor is trying to do, then shows pages from the site index. */
+  showGuide(hud: Hud, { auto, prefill, onAsk }: { auto: boolean; prefill: string; onAsk: (query: string) => Promise<GuideMatch[]> }) {
+    const id = `pulse-guide-${uid + 1}`;
+    const input = el('input', {
+      class: 'guide-input',
+      id,
+      type: 'text',
+      maxlength: '200',
+      placeholder: 'Try “returns” or “size guide”',
+      'aria-label': 'What are you trying to do?',
+    });
+    input.value = prefill;
+    const results = el('div', { class: 'guide-results' });
+    const send = el('button', { class: 'send mono', type: 'submit' }, 'Find');
+    const form = el(
+      'form',
+      {},
+      el('label', { class: 'label', for: id }, 'What are you trying to do?'),
+      input,
+      el('div', { class: 'actions' }, send),
+    );
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+      send.disabled = true;
+      results.replaceChildren(el('p', { class: 'message' }, 'Searching this site…'));
+      void onAsk(query)
+        .then((matches) => {
+          results.replaceChildren();
+          if (!matches.length) {
+            results.append(el('p', { class: 'message' }, 'Nothing on this site matches that yet.'));
+            return;
+          }
+          for (const match of matches) results.append(this.renderGuideMatch(match));
+        })
+        .catch(() => {
+          results.replaceChildren(el('p', { class: 'message' }, 'Guide is unavailable right now.'));
+        })
+        .finally(() => {
+          send.disabled = false;
+        });
+    });
+    const body = el('div', {}, el('h2', { class: 'title' }, 'Where do you need to go?'), form, results);
+    this.mount(hud, null, auto, body);
+    input.focus();
   }
 
   /** True while the panel opened with `token` is still on screen (the user hasn't closed it). */
@@ -141,17 +233,36 @@ export class Widget {
 
   destroy() {
     this.clearTimers();
+    this.dismissNudge();
     this.host.remove();
+  }
+
+  private renderGuideMatch(match: GuideMatch): HTMLElement {
+    const route = el('div', { class: 'route mono', 'aria-label': 'How to get there' });
+    match.steps.forEach((step, i) => {
+      if (i) route.append(el('span', { class: 'sep', 'aria-hidden': 'true' }, '›'));
+      route.append(el('span', { class: i === match.steps.length - 1 ? 'chip here' : 'chip' }, step.label));
+    });
+    const go = el('a', { class: 'send mono guide-go', href: match.url }, 'Go there');
+    return el(
+      'div',
+      { class: 'guide-hit' },
+      el('div', { class: 'guide-title' }, match.title),
+      el('p', { class: 'message' }, match.reason),
+      ...(match.steps.length ? [route] : []),
+      go,
+    );
   }
 
   private mount(hud: Hud, survey: Survey | null, auto: boolean, body: HTMLElement) {
     this.clearTimers();
+    this.dismissNudge();
     this.panel?.remove();
     uid++;
     this.token++;
     this.current = { survey, auto, answers: {} };
 
-    const alert = hud.label !== 'Assist mode';
+    const alert = hud.label === 'Anomaly detected';
     const close = el('button', { class: 'close', type: 'button', 'aria-label': 'Close' }, '×');
     close.addEventListener('click', () => this.close(true));
 

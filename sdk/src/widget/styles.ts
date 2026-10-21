@@ -132,6 +132,27 @@ textarea:focus { border-color: var(--a); box-shadow: 0 0 12px color-mix(in srgb,
 .intent-title { font-weight: 600; font-size: 13.5px; }
 .intent-sub { font-size: 12px; color: #94a3b8; }
 .thanks { margin: 6px 0 2px; color: #a7f3d0; }
+.nudge {
+  width: min(260px, calc(100vw - 44px)); padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(160deg, rgba(10,20,36,.96), rgba(4,9,18,.97));
+  border: 1px solid color-mix(in srgb, var(--a) 35%, transparent);
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+}
+.nudge p { margin: 0; font-size: 13px; color: #f0f9ff; letter-spacing: 0; text-transform: none; font-family: inherit; }
+.nudge-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.nudge-yes, .nudge-no {
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; font: inherit; font-size: 12.5px;
+}
+.nudge-yes { border: 1px solid var(--a); color: #ecfeff; background: color-mix(in srgb, var(--a) 22%, transparent); }
+.nudge-no { border: 1px solid rgba(148,163,184,.3); color: #cbd5e1; background: transparent; }
+.guide-input {
+  width: 100%; padding: 9px 11px; font: inherit; color: #f1f5f9; margin-bottom: 8px;
+  background: rgba(2,6,15,.7); border: 1px solid rgba(148,163,184,.25); border-radius: 9px;
+}
+.guide-input:focus { border-color: var(--a); box-shadow: 0 0 12px color-mix(in srgb, var(--a) 25%, transparent); outline: none; }
+.guide-hit { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,.15); }
+.guide-title { font-weight: 650; color: #f0f9ff; font-size: 13.5px; }
+.guide-go { display: inline-block; margin-top: 6px; text-decoration: none; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   .launcher .ring, .launcher .core, .panel, .scan::after, .status .dot, .message.typing::after { animation: none; }

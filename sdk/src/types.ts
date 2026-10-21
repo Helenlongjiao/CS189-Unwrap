@@ -1,4 +1,4 @@
-export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual';
+export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual' | 'lost';
 
 export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network' | 'page';
 
@@ -8,6 +8,8 @@ export interface ElementInfo {
   label: string;
   /** Heading of the card or section the element sits in, e.g. "LAX → Tokyo (HND)". */
   area?: string;
+  /** Label of the single field a button sits beside, e.g. "Promo code" for an "Apply" button. */
+  field?: string;
 }
 
 export type BreadcrumbType = 'page_view' | 'click' | 'focus' | 'submit' | 'error';

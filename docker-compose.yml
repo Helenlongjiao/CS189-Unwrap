@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse
+      POSTGRES_DB: pulse_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse_dev"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - pulse-data:/var/lib/postgresql/data
+
+  pulse:
+    image: ghcr.io/helenlongjiao/cs189-unwrap:latest
+    build: .
+    pull_policy: always
+    init: true
+    ports:
+      - "4000:4000"
+      - "5173:5173"
+      - "5174:5174"
+      - "5175:5175"
+      - "5176:5176"
+      - "5177:5177"
+    environment:
+      DATABASE_URL: postgres://pulse:pulse@db:5432/pulse_dev
+      PORT: "4000"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pulse-data:

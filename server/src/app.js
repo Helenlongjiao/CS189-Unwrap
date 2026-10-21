@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eventsRouter } from './routes/events.js';
 import { generateRouter } from './routes/generate.js';
+import { guideRouter } from './routes/guide.js';
 import { responsesRouter } from './routes/responses.js';
 import { surveysRouter } from './routes/surveys.js';
 import { createSiteResolver } from './sites.js';
@@ -46,6 +47,7 @@ export function createApp({ pool, surveyGenerator = null, rateLimitPerMinute = 6
   v1.use(express.text({ type: 'text/plain', limit: '256kb' }));
   v1.use(express.json({ limit: '256kb' }));
   v1.use(eventsRouter(deps));
+  v1.use(guideRouter(deps));
   v1.use(surveysRouter(deps));
   v1.use(generateRouter(deps));
   v1.use(responsesRouter(deps));

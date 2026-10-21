@@ -65,7 +65,8 @@ export function describeForModel(trigger, client) {
     if (step.type === 'page_view') return `${t} opened ${path} "${clip(d.title, 60)}"`;
     if (step.type === 'click') {
       const area = d.area ? ` in "${clip(d.area, 60)}"` : '';
-      return `${t} clicked ${d.tag ?? 'element'} "${clip(d.label, 60)}"${area} on ${path}${d.disabled ? ' (disabled)' : ''}`;
+      const field = d.field ? ` for "${clip(d.field, 60)}"` : '';
+      return `${t} clicked ${d.tag ?? 'element'} "${clip(d.label, 60)}"${field}${area} on ${path}${d.disabled ? ' (disabled)' : ''}`;
     }
     if (step.type === 'focus') return `${t} focused field "${clip(d.field, 60)}"`;
     if (step.type === 'submit') return `${t} submitted a form on ${path}`;

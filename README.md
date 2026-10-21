@@ -62,12 +62,41 @@ The project will progress through five areas:
 - **Sprint 2 (Week 3): Trigger heuristics and DB setup.** Done. The SDK detects rage clicks, dead clicks (including clicks on disabled controls), errors (JS exceptions, unhandled promise rejections, `console.error`, failed resources, failed network calls), and idle form abandonment. Every trigger carries the user's trail: pages visited, elements clicked, fields focused. PostgreSQL stores sessions, the trail, friction events, and templated surveys.
 - **Sprint 3 (Week 4): Dynamic survey widget.** Done. A small launcher sits in the corner of the page. It opens a survey automatically when friction is detected, and a stuck user can open it at any time. The widget lives in a Shadow DOM, so host-site CSS can't affect it and its CSS can't leak out. A rule engine picks the best survey for each trigger, personalizes it with what happened (for example, “Submit timecards” isn't available yet), and shows follow-up questions based on earlier answers, with at most 3 questions per survey. Answers are stored linked to the friction event and trail that caused them.
 
+## Run the demos
+
+Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all five demo sites:
+
+```bash
+git clone https://github.com/Helenlongjiao/CS189-Unwrap.git
+cd CS189-Unwrap
+git checkout CAPSTONE-main
+docker compose up
+```
+
+Leave that terminal open. Then open any of these. Each page loads the embed from `http://localhost:4000/sdk.js`.
+
+| Site | URL |
+| --- | --- |
+| Skyline Air | http://localhost:5173 |
+| Northline | http://localhost:5174 |
+| Harbor Credit Union | http://localhost:5175 |
+| Westbridge University | http://localhost:5176 |
+| Linden Clinic | http://localhost:5177 |
+
+Ports 4000 and 5173–5177 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
+
+The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
+
+AI-written surveys are optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. Without that key, surveys use the built-in templates. The lost-user guide does not call OpenAI.
+
 ## Repository Layout
 
 | Path | What it is |
 | --- | --- |
 | `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
 | `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
+| `test-site/` | Five demo sites the embed is installed on |
+| `docker-compose.yml` | One-command run of the database, API, and demo sites |
 
 ## Getting Started
 

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skyline Air · Checkout</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="http://localhost:4000/sdk.js?v=4" data-site-key="pk_dev_local" data-limits="off" data-ai="true" data-debug="true" async></script>
+</head>
+<body>
+  <header>
+    <a class="logo" href="/"><span class="logo-mark">✈</span>Skyline Air</a>
+    <nav><a href="/">Home</a><a href="/flights.html">Flights</a><a class="active" href="/checkout.html">Checkout</a></nav>
+    <div class="header-right">Rewards · 12,400 pts <span class="avatar"></span></div>
+  </header>
+  <main>
+    <div class="page-head"><h1>Checkout</h1><span class="pill">🔒 Secure booking</span></div>
+
+    <div class="checkout-grid">
+      <form class="panel" id="checkout" aria-label="Passenger details" novalidate>
+        <h2>Passenger details</h2>
+        <p class="sub">Enter names exactly as they appear on your passport.</p>
+        <label for="name">Full name</label>
+        <input id="name" name="name" placeholder="Alex Rivera" required />
+        <label for="email">Email for your e-ticket</label>
+        <input id="email" name="email" type="email" placeholder="alex@example.com" required />
+        <div class="row">
+          <div><label for="promo">Promo code</label><input id="promo" name="promo" placeholder="SUMMER26" /></div>
+          <!-- Intentional dead button: has no handler, nothing happens. -->
+          <button type="button" class="btn ghost" id="apply-promo">Apply</button>
+        </div>
+        <div style="height: 22px"></div>
+        <button type="submit" class="btn block" id="book">Complete booking</button>
+        <div class="error-box" id="error"></div>
+      </form>
+
+      <aside class="panel">
+        <h2>Your trip</h2>
+        <p class="sub" id="when">Tonight · Nonstop</p>
+        <div class="summary-route"><span id="from">LAX</span><span class="plane">✈</span><span id="to">HND</span></div>
+        <div class="line-item"><span>Fare</span><span id="fare">$568.00</span></div>
+        <div class="line-item"><span>Taxes &amp; fees</span><span id="tax">$44.00</span></div>
+        <div class="line-item total"><span>Total</span><span id="total">$612.00</span></div>
+        <div class="secure">Free cancellation within 24 hours</div>
+      </aside>
+    </div>
+  </main>
+  <footer>© 2026 Skyline Air · Demo site for the UCSB × Unwrap capstone</footer>
+  <script>
+    const flights = {
+      SK12: { to: 'HND', when: 'Tonight 11:40 PM · Nonstop 11h 50m', fare: 568, tax: 44 },
+      SK48: { to: 'HNL', when: 'Tonight 9:15 PM · Nonstop 5h 45m', fare: 259, tax: 30 },
+      SK77: { to: 'JFK', when: 'Tonight 10:05 PM · Red-eye 5h 20m', fare: 309, tax: 32 },
+    };
+    const id = new URLSearchParams(location.search).get('flight') || 'SK12';
+    const f = flights[id] || flights.SK12;
+    const money = (n) => '$' + n.toFixed(2);
+    document.getElementById('to').textContent = f.to;
+    document.getElementById('when').textContent = f.when;
+    document.getElementById('fare').textContent = money(f.fare);
+    document.getElementById('tax').textContent = money(f.tax);
+    document.getElementById('total').textContent = money(f.fare + f.tax);
+
+    // Intentional page break: the API returns 500 and this code then crashes reading the response.
+    document.getElementById('checkout').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const res = await fetch('/api/book', { method: 'POST', body: JSON.stringify({ flight: id }) });
+      const data = await res.json();
+      document.getElementById('error').textContent = 'Booking ' + data.booking.confirmation + ' confirmed';
+    });
+  </script>
+</body>
+</html>
