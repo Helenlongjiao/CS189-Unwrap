@@ -29,9 +29,9 @@ export function createSiteResolver(pool) {
 
 export async function upsertSession(db, siteId, sessionId, meta = {}, landingUrl = null) {
   const { rowCount } = await db.query(
-    `insert into sessions (id, site_id, user_agent, language, viewport, referrer, landing_url)
-     values ($1, $2, $3, $4, $5, $6, $7)
-     on conflict (id) do update set last_seen_at = now()
+    `insert into sessions (id, site_id, user_agent, language, viewport, referrer, landing_url, client)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     on conflict (id) do update set last_seen_at = now(), client = coalesce(excluded.client, sessions.client)
      where sessions.site_id = excluded.site_id
      returning id`,
     [
@@ -42,6 +42,7 @@ export async function upsertSession(db, siteId, sessionId, meta = {}, landingUrl
       meta.viewport && typeof meta.viewport === 'object' ? meta.viewport : null,
       typeof meta.referrer === 'string' ? meta.referrer.slice(0, 2000) : null,
       landingUrl,
+      meta.client && typeof meta.client === 'object' && !Array.isArray(meta.client) ? meta.client : null,
     ],
   );
   if (!rowCount) throw new HttpError(409, 'session belongs to a different site');

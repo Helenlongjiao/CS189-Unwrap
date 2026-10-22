@@ -1,0 +1,15 @@
+:root { --teal: #0f766e; --mint: #f0fdfa; --ink: #134e4a; --line: #ccfbf1; --muted: #3f6f6b; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--mint); color: var(--ink); font: 16px/1.5 "Segoe UI", sans-serif; }
+header { background: white; border-bottom: 1px solid var(--line); padding: 14px 24px; display: flex; gap: 18px; align-items: center; }
+header a { color: var(--ink); text-decoration: none; }
+.brand { font-weight: 750; color: var(--teal); }
+nav { display: flex; gap: 14px; }
+header input { margin-left: auto; border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; }
+main { max-width: 860px; margin: 0 auto; padding: 28px 18px 56px; }
+h1 { margin-top: 0; }
+.demo, .sub { color: var(--muted); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+button, .btn { background: var(--teal); color: white; border: 0; border-radius: 999px; padding: 8px 14px; text-decoration: none; display: inline-block; }
+@media (max-width: 700px) { .row { grid-template-columns: 1fr; } header { flex-wrap: wrap; } }

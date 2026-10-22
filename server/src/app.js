@@ -5,16 +5,18 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { eventsRouter } from './routes/events.js';
+import { generateRouter } from './routes/generate.js';
+import { guideRouter } from './routes/guide.js';
 import { responsesRouter } from './routes/responses.js';
 import { surveysRouter } from './routes/surveys.js';
 import { createSiteResolver } from './sites.js';
 
 const SDK_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../sdk/dist');
 
-export function createApp({ pool, rateLimitPerMinute = 600 }) {
+export function createApp({ pool, surveyGenerator = null, rateLimitPerMinute = 600 }) {
   const app = express();
   const resolveSite = createSiteResolver(pool);
-  const deps = { pool, resolveSite };
+  const deps = { pool, resolveSite, surveyGenerator };
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
@@ -32,7 +34,10 @@ export function createApp({ pool, rateLimitPerMinute = 600 }) {
   app.get('/sdk.js', (_req, res) => {
     const file = path.join(SDK_DIST, 'pulse.min.js');
     if (!existsSync(file)) return res.status(503).type('text/plain').send('SDK not built yet: run `npm run build`');
-    res.set({ 'Cache-Control': 'public, max-age=300', 'Cross-Origin-Resource-Policy': 'cross-origin' });
+    res.set({
+      'Cache-Control': process.env.NODE_ENV === 'production' ? 'public, max-age=300' : 'no-cache',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
     res.type('application/javascript').sendFile(file);
   });
 
@@ -42,7 +47,9 @@ export function createApp({ pool, rateLimitPerMinute = 600 }) {
   v1.use(express.text({ type: 'text/plain', limit: '256kb' }));
   v1.use(express.json({ limit: '256kb' }));
   v1.use(eventsRouter(deps));
+  v1.use(guideRouter(deps));
   v1.use(surveysRouter(deps));
+  v1.use(generateRouter(deps));
   v1.use(responsesRouter(deps));
   app.use('/v1', v1);
 

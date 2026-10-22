@@ -62,12 +62,41 @@ The project will progress through five areas:
 - **Sprint 2 (Week 3): Trigger heuristics and DB setup.** Done. The SDK detects rage clicks, dead clicks (including clicks on disabled controls), errors (JS exceptions, unhandled promise rejections, `console.error`, failed resources, failed network calls), and idle form abandonment. Every trigger carries the user's trail: pages visited, elements clicked, fields focused. PostgreSQL stores sessions, the trail, friction events, and templated surveys.
 - **Sprint 3 (Week 4): Dynamic survey widget.** Done. A small launcher sits in the corner of the page. It opens a survey automatically when friction is detected, and a stuck user can open it at any time. The widget lives in a Shadow DOM, so host-site CSS can't affect it and its CSS can't leak out. A rule engine picks the best survey for each trigger, personalizes it with what happened (for example, “Submit timecards” isn't available yet), and shows follow-up questions based on earlier answers, with at most 3 questions per survey. Answers are stored linked to the friction event and trail that caused them.
 
+## Run the demos
+
+Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all five demo sites:
+
+```bash
+git clone https://github.com/Helenlongjiao/CS189-Unwrap.git
+cd CS189-Unwrap
+git checkout CAPSTONE-main
+docker compose up
+```
+
+Leave that terminal open. Then open any of these. Each page loads the embed from `http://localhost:4000/sdk.js`.
+
+| Site | URL |
+| --- | --- |
+| Skyline Air | http://localhost:5173 |
+| Northline | http://localhost:5174 |
+| Harbor Credit Union | http://localhost:5175 |
+| Westbridge University | http://localhost:5176 |
+| Linden Clinic | http://localhost:5177 |
+
+Ports 4000 and 5173–5177 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
+
+The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
+
+AI-written surveys are optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. Without that key, surveys use the built-in templates. The lost-user guide does not call OpenAI.
+
 ## Repository Layout
 
 | Path | What it is |
 | --- | --- |
 | `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
 | `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
+| `test-site/` | Five demo sites the embed is installed on |
+| `docker-compose.yml` | One-command run of the database, API, and demo sites |
 
 ## Getting Started
 
@@ -100,6 +129,7 @@ Add one line to any page:
 | `data-widget="false"` | Detection and recording only, no UI |
 | `data-position="bottom-left"` | Put the launcher in the bottom-left corner |
 | `data-accent="#0f766e"` | Widget accent color |
+| `data-limits="off"` | Demo mode: no cooldowns or per-session cap, and a repeated error prompts again on each new click |
 
 A site can also open the help survey from its own button with `Pulse.open()`.
 
@@ -112,6 +142,14 @@ Templates live in the `survey_templates` table. For each trigger, the SDK keeps 
 ```
 
 Prompts can use placeholders that are filled from the trigger: `{{element.label}}`, `{{page.title}}`, `{{page.path}}`, `{{context.lastField}}`, and any other `context.*` field. Add `|fallback` for values that may be missing, for example `{{context.lastField|this field}}`. A question with `"showIf": {"question": "kind", "in": ["lost"]}` (or `notIn`) only appears for those answers. A site-specific template with the same `slug` as a default overrides it for that site.
+
+### AI-Written Surveys
+
+With `data-ai="true"` on the script tag and `OPENAI_API_KEY` set in `server/.env` (never committed), the server asks a language model to write a 1–3 question survey for each specific moment. Its input is the trigger, the element and the card it sits in, the user's route across pages, and coarse browser context: timezone-based region, time of day, weekday, browser, OS, and device. No geolocation permission is used. Each generated survey, and exactly what the model was shown, is stored in `generated_surveys`, and answers link to it. If the model is unavailable, the SDK falls back to the templates above. Generation is capped at 6 surveys per session.
+
+When a user opens the orb themselves, it first asks why they're there: "I'm lost", "Something went wrong", or "I have a question". The survey then matches that choice and doesn't assume anything broke.
+
+The SDK also detects pages that load with an HTTP error, such as a 404 from a broken link. It keeps the route in `sessionStorage`, so the survey on the error page knows which link on the previous page led there.
 
 Included variants: disabled controls (for a rage click or dead click on a greyed-out button) and failed network requests each get their own survey, instead of the generic one.
 

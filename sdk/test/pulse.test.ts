@@ -33,6 +33,18 @@ describe('trigger engine prompt budget', () => {
     vi.useRealTimers();
   });
 
+  it('lets every trigger prompt when limits are off', () => {
+    const engine = new TriggerEngine(
+      resolveConfig({ siteKey: 'pk', endpoint: 'http://x', limits: false, maxPromptsPerSession: 1 }),
+      { send: () => {} } as unknown as Transport,
+      new Breadcrumbs(10),
+    );
+    for (let i = 0; i < 3; i++) {
+      expect(engine.fire('rage_click').eligible).toBe(true);
+      engine.notePrompted('rage_click');
+    }
+  });
+
   it('keeps the budget across page loads in the same tab', () => {
     make().notePrompted('rage_click');
     expect(make().fire('rage_click').eligible).toBe(false);
@@ -66,8 +78,9 @@ describe('createPulse', () => {
     expect(url).toBe('http://api.test/v1/events');
     const body = JSON.parse(init.body as string);
     expect(body).toMatchObject({ siteKey: 'pk_test', sessionId: pulse.sessionId });
-    expect(body.events.map((e: { type: string }) => e.type)).toEqual(['page_view', 'click']);
-    expect(body.events[1].data).toMatchObject({ label: 'Help center', tag: 'a', selector: '#help' });
+    const interactions = body.events.filter((e: { kind: string }) => e.kind === 'interaction');
+    expect(interactions.map((e: { type: string }) => e.type)).toEqual(['page_view', 'click']);
+    expect(interactions[1].data).toMatchObject({ label: 'Help center', tag: 'a', selector: '#help' });
   });
 
   it('keeps the same session id within a tab', () => {

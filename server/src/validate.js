@@ -1,4 +1,4 @@
-export const TRIGGER_TYPES = ['rage_click', 'dead_click', 'error', 'form_abandon', 'manual'];
+export const TRIGGER_TYPES = ['rage_click', 'dead_click', 'error', 'form_abandon', 'manual', 'lost'];
 export const INTERACTION_TYPES = ['page_view', 'click', 'focus', 'submit', 'error'];
 export const MAX_EVENTS_PER_BATCH = 100;
 

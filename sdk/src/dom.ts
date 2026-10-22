@@ -77,6 +77,30 @@ export function fieldLabel(el: Element): string {
   );
 }
 
+const FIELDS = 'input:not([type="hidden"],[type="submit"],[type="button"],[type="reset"],[type="image"]),select,textarea';
+
+/** Label of the one field a control sits beside (the code box next to "Apply"); none if ambiguous. */
+function pairedField(el: Element): string | undefined {
+  if (el.matches(FIELDS)) return undefined;
+  let node = el.parentElement;
+  for (let depth = 0; node && node !== document.body && depth < 2; depth++, node = node.parentElement) {
+    const fields = node.querySelectorAll(FIELDS);
+    if (fields.length === 1) return fieldLabel(fields[0]);
+    if (fields.length > 1) return undefined;
+  }
+  return undefined;
+}
+
+/** Nearest heading in an enclosing card or section, so "View seat map" can be told apart per flight. */
+function areaLabel(el: Element): string | undefined {
+  let node = el.parentElement;
+  for (let depth = 0; node && node !== document.body && depth < 5; depth++, node = node.parentElement) {
+    const heading = node.querySelector('h1,h2,h3,h4,legend');
+    if (heading && !heading.contains(el) && heading.textContent?.trim()) return truncate(heading.textContent, 60);
+  }
+  return undefined;
+}
+
 export function describe(el: Element): ElementInfo {
   const tag = el.tagName.toLowerCase();
   let label = el.getAttribute('aria-label') || '';
@@ -86,5 +110,7 @@ export function describe(el: Element): ElementInfo {
   }
   if (!label) label = (el as HTMLElement).innerText || el.textContent || '';
   if (!label) label = el.getAttribute('title') || el.getAttribute('alt') || tag;
-  return { selector: cssPath(el), tag, label: truncate(label, 60) };
+  const area = areaLabel(el);
+  const field = pairedField(el);
+  return { selector: cssPath(el), tag, label: truncate(label, 60), ...(area && { area }), ...(field && { field }) };
 }

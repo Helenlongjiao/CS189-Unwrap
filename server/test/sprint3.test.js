@@ -29,6 +29,9 @@ describe('survey rules and responses', () => {
     assert.deepEqual(bySlug('error-network').conditions, { context: { kind: ['network'] } });
     assert.deepEqual(bySlug('dead-click-default').conditions, {});
     assert.deepEqual(bySlug('manual-default').questions[1].showIf, { question: 'kind', in: ['lost'] });
+    for (const intent of ['lost', 'issue', 'question']) {
+      assert.deepEqual(bySlug(`manual-${intent}`).conditions, { context: { intent: [intent] } });
+    }
   });
 
   it('stores a submitted response linked to its friction event', async () => {

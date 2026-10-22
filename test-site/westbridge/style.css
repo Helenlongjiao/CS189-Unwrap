@@ -1,0 +1,14 @@
+:root { --crimson: #7a1f2b; --paper: #f7f1e8; --ink: #24170f; --muted: #6d584c; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.5 "Palatino Linotype", Palatino, serif; }
+.top { background: var(--crimson); color: #f8efe6; padding: 16px 28px; display: flex; gap: 22px; align-items: center; }
+.top a { color: #f8efe6; text-decoration: none; }
+.top nav { display: flex; gap: 16px; font-family: "Segoe UI", sans-serif; font-size: 14px; }
+.top input { margin-left: auto; border: 0; border-radius: 4px; padding: 7px 10px; }
+main { max-width: 880px; margin: 0 auto; padding: 32px 20px 60px; }
+h1 { font-weight: 500; }
+.demo, .sub { color: var(--muted); }
+.subnav { display: flex; gap: 14px; font-family: "Segoe UI", sans-serif; font-size: 14px; margin-bottom: 16px; }
+.subnav a { color: var(--crimson); }
+.card { background: white; border: 1px solid #e4d8c8; padding: 16px 18px; margin-top: 12px; }
+button { background: var(--crimson); color: white; border: 0; padding: 8px 14px; font: inherit; cursor: pointer; }

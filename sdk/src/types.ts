@@ -1,11 +1,15 @@
-export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual';
+export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual' | 'lost';
 
-export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network';
+export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network' | 'page';
 
 export interface ElementInfo {
   selector: string;
   tag: string;
   label: string;
+  /** Heading of the card or section the element sits in, e.g. "LAX → Tokyo (HND)". */
+  area?: string;
+  /** Label of the single field a button sits beside, e.g. "Promo code" for an "Apply" button. */
+  field?: string;
 }
 
 export type BreadcrumbType = 'page_view' | 'click' | 'focus' | 'submit' | 'error';
@@ -48,6 +52,8 @@ export interface PulseConfig {
   /** Minimum gap between two prompts of the same trigger type. */
   sameTypeCooldownMs: number;
   maxPromptsPerSession: number;
+  /** Enforce the prompt budget and per-page error dedupe. Turn off for demos so every break prompts. */
+  limits: boolean;
   trailSize: number;
   /** Show the corner launcher and survey panel. Turn off to use detection only. */
   widget: boolean;
@@ -55,4 +61,6 @@ export interface PulseConfig {
   autoOpen: boolean;
   position: 'bottom-right' | 'bottom-left';
   accentColor?: string;
+  /** Ask the server to write a survey for each moment with a language model, falling back to templates. */
+  ai: boolean;
 }

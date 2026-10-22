@@ -36,12 +36,14 @@ export interface SurveyTemplate {
   questions: Question[];
 }
 
-/** A template personalized for one trigger, ready to render. */
+/** A survey personalized for one trigger, ready to render: from a template or written by the model. */
 export interface Survey {
-  templateId: string;
+  templateId?: string;
+  generatedSurveyId?: string;
   triggerId: string;
   triggerType: TriggerType;
   title: string;
+  message?: string;
   questions: Question[];
 }
 

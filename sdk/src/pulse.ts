@@ -4,9 +4,11 @@ import type { Detector, DetectorContext } from './detectors/context';
 import { deadClickDetector } from './detectors/deadClick';
 import { errorDetector } from './detectors/errors';
 import { formAbandonDetector } from './detectors/formAbandon';
+import { lostDetector } from './detectors/lost';
 import { rageClickDetector } from './detectors/rageClick';
 import { describe, findInteractive } from './dom';
 import { onNavigate } from './navigation';
+import { clientContext } from './client';
 import { mountSurveys } from './surveys/controller';
 import { onTap, type Tap } from './taps';
 import { Transport } from './transport';
@@ -14,7 +16,7 @@ import { TriggerEngine } from './triggers';
 import type { PulseConfig, Trigger } from './types';
 import { getSessionId, safeUrl } from './util';
 
-const DETECTORS: Detector[] = [rageClickDetector, deadClickDetector, errorDetector, formAbandonDetector];
+const DETECTORS: Detector[] = [rageClickDetector, deadClickDetector, errorDetector, formAbandonDetector, lostDetector];
 
 export interface PulseInstance {
   config: PulseConfig;
@@ -26,6 +28,37 @@ export interface PulseInstance {
   destroy(): void;
 }
 
+/**
+ * A page that itself loaded with an HTTP error (a 404 from a broken link, a 500 from the server).
+ * The status comes from the Navigation Timing API (Chromium 109+); other browsers skip this check.
+ */
+function detectBrokenPage(engine: TriggerEngine, breadcrumbs: Breadcrumbs) {
+  const nav = performance.getEntriesByType?.('navigation')[0] as (PerformanceEntry & { responseStatus?: number }) | undefined;
+  const status = nav?.responseStatus;
+  if (!status || status < 400) return;
+  const trail = breadcrumbs.snapshot();
+  const cameFrom = [...trail].reverse().find((b) => b.type === 'page_view' && b.url !== safeUrl());
+  const lastClick = [...trail].reverse().find((b) => b.type === 'click' && b.url === cameFrom?.url);
+  breadcrumbs.add('error', { kind: 'page', status });
+  engine.fire('error', {
+    element: lastClick
+      ? {
+          selector: String(lastClick.data.selector ?? ''),
+          tag: String(lastClick.data.tag ?? 'a'),
+          label: String(lastClick.data.label ?? ''),
+          ...(lastClick.data.area ? { area: String(lastClick.data.area) } : {}),
+        }
+      : undefined,
+    context: {
+      kind: 'page',
+      status,
+      message: status === 404 ? 'Page not found' : `Page failed to load (${status})`,
+      cameFrom: cameFrom?.url,
+      cameFromTitle: cameFrom?.data.title,
+    },
+  });
+}
+
 export function createPulse(opts: PulseOptions): PulseInstance {
   const config = resolveConfig(opts);
   const sessionId = getSessionId();
@@ -35,6 +68,7 @@ export function createPulse(opts: PulseOptions): PulseInstance {
     language: navigator.language,
     viewport: { width: window.innerWidth, height: window.innerHeight },
     referrer: document.referrer ? safeUrl(document.referrer) : undefined,
+    client: clientContext(),
   }));
   const engine = new TriggerEngine(config, transport, breadcrumbs);
 
@@ -67,8 +101,11 @@ export function createPulse(opts: PulseOptions): PulseInstance {
   const ctx: DetectorContext = { config, engine, breadcrumbs, transport, onTap, lastTap: () => latestTap };
   DETECTORS.forEach((detector) => teardown.push(detector(ctx)));
 
-  const surveys = config.widget ? mountSurveys(config, engine, transport) : null;
+  const surveys = config.widget ? mountSurveys(config, engine, transport, breadcrumbs) : null;
   if (surveys) teardown.push(() => surveys.destroy());
+
+  // After surveys are mounted, so a broken page can prompt as soon as it loads.
+  detectBrokenPage(engine, breadcrumbs);
 
   return {
     config,

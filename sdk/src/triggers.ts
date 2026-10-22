@@ -56,7 +56,7 @@ export class TriggerEngine {
   }
 
   isEligible(type: TriggerType): boolean {
-    if (type === 'manual') return true;
+    if (type === 'manual' || !this.config.limits) return true;
     const state = this.loadState();
     const now = Date.now();
     if (state.count >= this.config.maxPromptsPerSession) return false;

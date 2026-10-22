@@ -1,0 +1,23 @@
+:root { color-scheme: dark; --bg: #0c0c0c; --card: #161616; --line: #2a2a2a; --text: #f4f4f4; --muted: #a3a3a3; --accent: #e11d2e; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.5 "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 28px; padding: 18px 32px; border-bottom: 1px solid var(--line); }
+.logo { color: var(--text); text-decoration: none; font-weight: 800; letter-spacing: .18em; }
+nav { display: flex; gap: 22px; }
+nav a { color: var(--text); text-decoration: none; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; }
+nav a:hover { color: var(--accent); }
+header input { margin-left: auto; background: #111; color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; min-width: 220px; }
+main { max-width: 1040px; margin: 0 auto; padding: 36px 24px 64px; }
+h1 { font-size: 48px; line-height: 1.05; letter-spacing: -0.03em; margin: 0 0 12px; }
+.demo, .sub { color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+.card, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.swatch { height: 160px; border-radius: 12px; margin-bottom: 12px; background: linear-gradient(160deg, #1f1f1f, #3a0d12); }
+.card a { color: var(--text); font-weight: 650; text-decoration: none; }
+.cta, button { display: inline-block; margin-top: 16px; background: var(--accent); color: white; border: 0; border-radius: 999px; padding: 12px 18px; text-decoration: none; font-weight: 700; cursor: pointer; }
+.sizes { display: flex; gap: 8px; }
+.sizes button { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.help-list { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.help-list a { color: var(--text); }
+footer { padding: 24px 32px; color: var(--muted); border-top: 1px solid var(--line); }
+@media (max-width: 800px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 34px; } header { flex-wrap: wrap; } }
