@@ -1,4 +1,5 @@
 import { describe, findInteractive } from '../dom';
+import { explainScore, type Evidence } from '../scoring';
 import type { ErrorKind } from '../types';
 import { safeUrl, truncate } from '../util';
 import type { Detector } from './context';
@@ -9,15 +10,56 @@ interface CapturedError {
   [key: string]: unknown;
 }
 
+/** How blocking each kind of error usually is, before looking at what the user was doing. */
+const BASE_POINTS: Record<ErrorKind, number> = { js: 40, promise: 30, network: 35, page: 40, console: 15, resource: 15 };
+
+/** Browser warnings that say nothing about the page being broken. */
+const BENIGN_MESSAGE = /ResizeObserver loop/i;
+
+/** Analytics, ads and monitoring hosts. Their failures are not the user's problem. */
+const NOISE_HOSTS =
+  /(^|\.)(googletagmanager\.com|google-analytics\.com|doubleclick\.net|googlesyndication\.com|facebook\.net|hotjar\.com|segment\.(io|com)|mixpanel\.com|amplitude\.com|fullstory\.com|clarity\.ms|sentry\.io|datadoghq\.com|newrelic\.com|nr-data\.net|intercom\.io|hubspot\.com|adobedtm\.com)$/i;
+
+/** True for browser-extension scripts and well-known third-party hosts. Checked on the raw URL. */
+function isThirdPartyNoise(raw: unknown): boolean {
+  if (typeof raw !== 'string' || !raw) return false;
+  if (/^[a-z-]+-extension:/i.test(raw)) return true;
+  try {
+    return NOISE_HOSTS.test(new URL(raw, location.href).hostname);
+  } catch {
+    return false;
+  }
+}
+
+const noise = (raw: unknown) => (isThirdPartyNoise(raw) ? { thirdParty: true } : {});
+
 /**
  * Captures JS exceptions, unhandled promise rejections, `console.error`, failed resource loads,
- * and failed network calls (5xx or no response). Every error is stored with the user's trail;
- * only errors that follow a user click within `errorClickWindowMs` may prompt, since background
- * errors the user never noticed aren't worth interrupting them for.
+ * and failed network calls (5xx or no response). Every error is stored with the user's trail.
+ *
+ * Each error is scored: its kind sets the starting points (a crash or failed request outweighs a
+ * console warning or a missing image); an error right after a click adds points that fade the
+ * longer it takes to arrive; a failed write (POST, PUT, ...) adds more; browser warnings, errors
+ * with no readable source, extension scripts and third-party trackers take points away.
+ * Only an error that follows a click within `errorClickWindowMs` AND reaches
+ * `scoreThreshold.error` may prompt; the rest are recorded with their score.
  */
 export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport, lastTap }) => {
   const seen = new Set<string>();
   let reporting = false;
+
+  const scoreError = (err: CapturedError, now: number, tapAt: number | undefined, causedByClick: boolean) => {
+    const evidence: Evidence[] = [{ id: `error-${err.kind}`, weight: BASE_POINTS[err.kind], at: now }];
+    // Dated at the click, so it fades as the gap between click and error grows.
+    if (causedByClick && tapAt !== undefined) evidence.push({ id: 'after-click', weight: 30, at: tapAt });
+    if (err.kind === 'network' && typeof err.method === 'string' && !['GET', 'HEAD'].includes(err.method)) {
+      evidence.push({ id: 'failed-write', weight: 15, at: now });
+    }
+    if (BENIGN_MESSAGE.test(err.message)) evidence.push({ id: 'benign-browser-warning', weight: -60, at: now });
+    if (err.message === 'Script error.') evidence.push({ id: 'unreadable-script-error', weight: -30, at: now });
+    if (err.thirdParty) evidence.push({ id: 'third-party-source', weight: -50, at: now });
+    return explainScore(evidence, now, config.errorClickWindowMs);
+  };
 
   const report = (err: CapturedError) => {
     if (reporting) return;
@@ -30,10 +72,12 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
       seen.add(key);
       breadcrumbs.add('error', { kind: err.kind, message: err.message });
 
-      const causedByClick = !!tap && Date.now() - tap.at <= config.errorClickWindowMs;
+      const now = Date.now();
+      const causedByClick = !!tap && now - tap.at <= config.errorClickWindowMs;
       const element = causedByClick ? describe(findInteractive(tap!.target) ?? tap!.target) : undefined;
-      const input = { element, context: { ...err, causedByClick } };
-      if (causedByClick) engine.fire('error', input);
+      const { score, signals } = scoreError(err, now, tap?.at, causedByClick);
+      const input = { element, context: { ...err, causedByClick, score, signals } };
+      if (causedByClick && score >= config.scoreThreshold.error) engine.fire('error', input);
       else engine.record('error', input);
     } finally {
       reporting = false;
@@ -44,7 +88,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
     const target = e.target;
     if (target instanceof HTMLElement) {
       const src = (target as HTMLImageElement).src || (target as HTMLLinkElement).href || '';
-      report({ kind: 'resource', message: `Failed to load ${target.tagName.toLowerCase()}`, resource: safeUrl(src) });
+      report({ kind: 'resource', message: `Failed to load ${target.tagName.toLowerCase()}`, resource: safeUrl(src), ...noise(src) });
       return;
     }
     const ev = e as ErrorEvent;
@@ -52,6 +96,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
       kind: 'js',
       message: truncate(ev.message || String(ev.error), 300),
       source: ev.filename ? safeUrl(ev.filename) : undefined,
+      ...noise(ev.filename),
       line: ev.lineno,
       column: ev.colno,
       stack: ev.error?.stack ? truncate(String(ev.error.stack), 1000) : undefined,
@@ -85,12 +130,12 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
       try {
         const res = await originalFetch.call(window, input, init);
         if (!ours && res.status >= 500) {
-          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed with ${res.status}`, method, url: safeUrl(url), status: res.status });
+          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed with ${res.status}`, method, url: safeUrl(url), status: res.status, ...noise(new URL(url, location.href).href) });
         }
         return res;
       } catch (err) {
         if (!ours && !(err instanceof DOMException && err.name === 'AbortError')) {
-          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed (no response)`, method, url: safeUrl(url), status: 0 });
+          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed (no response)`, method, url: safeUrl(url), status: 0, ...noise(new URL(url, location.href).href) });
         }
         throw err;
       }
@@ -116,6 +161,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
             method: info.method,
             url: safeUrl(info.url),
             status,
+            ...noise(new URL(info.url, location.href).href),
           });
         }
       });

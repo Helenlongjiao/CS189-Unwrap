@@ -42,8 +42,14 @@ export interface PulseConfig {
   endpoint: string;
   debug: boolean;
   captureInteractions: boolean;
-  rageClick: { count: number; windowMs: number; radiusPx: number };
+  /** `settleMs`: how long after the last click a burst is judged, once we can tell if the page responded. */
+  rageClick: { count: number; windowMs: number; radiusPx: number; settleMs: number };
   deadClick: { timeoutMs: number };
+  /**
+   * Points a moment needs before it may prompt the user. Below it the moment is still recorded
+   * (with its score) for analysis. Raise a threshold to prompt less, lower it to prompt more.
+   */
+  scoreThreshold: { rageClick: number; deadClick: number; error: number };
   formIdleMs: number;
   /** An error only becomes a prompt-worthy trigger if it follows a user click within this window. */
   errorClickWindowMs: number;

@@ -1,16 +1,18 @@
 import type { PulseConfig } from './types';
 
-export type PulseOptions = Partial<Omit<PulseConfig, 'rageClick' | 'deadClick'>> & {
+export type PulseOptions = Partial<Omit<PulseConfig, 'rageClick' | 'deadClick' | 'scoreThreshold'>> & {
   siteKey: string;
   rageClick?: Partial<PulseConfig['rageClick']>;
   deadClick?: Partial<PulseConfig['deadClick']>;
+  scoreThreshold?: Partial<PulseConfig['scoreThreshold']>;
 };
 
 export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   debug: false,
   captureInteractions: true,
-  rageClick: { count: 3, windowMs: 700, radiusPx: 30 },
+  rageClick: { count: 3, windowMs: 700, radiusPx: 30, settleMs: 300 },
   deadClick: { timeoutMs: 1000 },
+  scoreThreshold: { rageClick: 50, deadClick: 45, error: 50 },
   formIdleMs: 30_000,
   errorClickWindowMs: 3_000,
   cooldownMs: 60_000,
@@ -32,6 +34,7 @@ export function resolveConfig(opts: PulseOptions): PulseConfig {
     endpoint: (opts.endpoint || location.origin).replace(/\/+$/, ''),
     rageClick: { ...DEFAULTS.rageClick, ...opts.rageClick },
     deadClick: { ...DEFAULTS.deadClick, ...opts.deadClick },
+    scoreThreshold: { ...DEFAULTS.scoreThreshold, ...opts.scoreThreshold },
   };
 }
 

@@ -1,7 +1,8 @@
+import { DECAY_MS, patternFamily, totalScore } from '../scoring';
 import type { Breadcrumb } from '../types';
 
-/** Points older than this fade to zero, so a hop from half an hour ago does not linger. */
-export const DECAY_MS = 4 * 60_000;
+// Decay, families and summing live in ../scoring so other detectors score the same way.
+export { DECAY_MS, patternFamily };
 export const NUDGE_SCORE = 20;
 export const FULL_SCORE = 50;
 
@@ -53,31 +54,8 @@ export interface LostMatch {
   at: number;
 }
 
-/** `hop-3-30s` and `hop-4-45s` are one behavior seen at two windows, so only the stronger one scores. */
-export function patternFamily(id: string): string {
-  const name: string[] = [];
-  for (const part of id.split('-')) {
-    if (/^\d/.test(part)) break;
-    name.push(part);
-  }
-  return name.join('-') || id;
-}
-
-function pointsLeft(match: LostMatch, now: number): number {
-  const age = Math.max(0, now - match.at);
-  return match.weight * Math.max(0, 1 - age / DECAY_MS);
-}
-
 export function lostTier(matches: LostMatch[], now: number): { score: number; tier: 'none' | 'nudge' | 'full' } {
-  const best = new Map<string, LostMatch>();
-  for (const match of matches) {
-    const family = patternFamily(match.id);
-    const current = best.get(family);
-    if (!current || pointsLeft(match, now) > pointsLeft(current, now)) best.set(family, match);
-  }
-  let score = 0;
-  for (const match of best.values()) score += pointsLeft(match, now);
-  score = Math.round(score);
+  const score = totalScore(matches, now);
   const tier = score >= FULL_SCORE ? 'full' : score >= NUDGE_SCORE ? 'nudge' : 'none';
   return { score, tier };
 }
