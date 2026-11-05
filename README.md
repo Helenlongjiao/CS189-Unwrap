@@ -173,3 +173,18 @@ Included variants: disabled controls (for a rage click or dead click on a greyed
 | Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
 
 To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.
+
+### What We Mask
+
+Before anything leaves the browser, the SDK replaces personal info in every text value it sends (events, page info, survey answers, guide questions) with a placeholder:
+
+| Found | Sent as |
+| --- | --- |
+| Email address | `[email]` |
+| Phone number (US formats, or `+` and a country code) | `[phone]` |
+| IPv4 address | `[ip]` |
+| Card number of 13–19 digits that passes the Luhn check | `[card]` |
+| Any other run of 8 or more digits, such as an account number | `[account]` |
+| Name in a URL path, right after a folder about people (`/users/`, `/profile/`, `/members/`, `/patients/`, `/students/`, ...) | `/users/[name]` |
+
+Prices, dates, times and short numbers are left alone. Names elsewhere (survey answers, button text) are not masked yet. Ids the SDK makes up and the browser's user agent are sent unchanged. Crash reports (`stack`) also drop the `?query` and `#hash` from each URL in them. Masking errs on the side of hiding too much, so expect the odd false positive, such as a long order number shown as `[account]`.

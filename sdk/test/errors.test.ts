@@ -51,6 +51,23 @@ describe('error detector', () => {
     expect(h.triggers[0].context).toMatchObject({ kind: 'network', status: 500, method: 'POST', url: 'https://site.test/api/broken' });
   });
 
+  it('drops query strings and hashes from URLs in crash reports', () => {
+    const error = new TypeError('price is undefined');
+    error.stack =
+      'TypeError: price is undefined\n' +
+      '    at pay (http://localhost:5173/checkout.html?q=leak@example.com:69:12)\n' +
+      '    at http://localhost:5173/app.js?v=3#top:10:5';
+    window.dispatchEvent(new ErrorEvent('error', { message: error.message, error }));
+    expect(h.triggers[0].context.stack).toBe(
+      'TypeError: price is undefined at pay (http://localhost:5173/checkout.html:69:12) at http://localhost:5173/app.js:10:5',
+    );
+
+    const rejection = new Error('Transfer rejected');
+    rejection.stack = 'Error: Transfer rejected\npay@http://localhost:5173/checkout.html?flight=SK12:70:3';
+    window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason: rejection }));
+    expect(h.triggers[1].context.stack).toBe('Error: Transfer rejected pay@http://localhost:5173/checkout.html:70:3');
+  });
+
   it('captures console.error and still calls the original', () => {
     console.error('Payment widget failed', { code: 42 });
     expect(h.triggers[0].context).toMatchObject({ kind: 'console', message: 'Payment widget failed {"code":42}' });
