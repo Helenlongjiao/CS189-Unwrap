@@ -38,7 +38,7 @@ The project will progress through five areas:
 1. **Research:** Analyze the competitive landscape, intended infrastructure, and technical limitations.
 2. **Trigger Design:** Identify friction, error, abandonment, and explicit signals, then compare polling and event-driven detection.
 3. **Frontend Widget:** Build a configurable survey popup with dynamic, trigger-specific questions.
-4. **Context Collection:** Capture useful metadata while excluding sensitive information and applying redaction where necessary.
+4. **Context Collection:** Capture useful metadata while excluding sensitive information and applying redaction where necessary. See [what data the SDK collects](docs/data-collection.pdf).
 5. **Analysis:** Aggregate responses, identify recurring issues, and visualize key patterns.
 
 ## Team Members
