@@ -12,10 +12,10 @@ function isSearchField(el: Element): boolean {
 }
 
 /**
- * Scores generalized "lost" patterns. 20–49 points raises a small nudge; 50 or more opens the
- * full guide. Each pattern counts once per tab, and old points decay.
+ * Scores generalized "lost" patterns. At `config.lost.nudgeScore` a nudge fires; at
+ * `config.lost.fullScore` the full guide opens. Each pattern counts once per tab, and old points decay.
  */
-export const lostDetector: Detector = ({ engine, breadcrumbs }) => {
+export const lostDetector: Detector = ({ config, engine, breadcrumbs }) => {
   const scrolls: LostScroll[] = [];
   const searches: LostSearch[] = [];
   const matched = new Map<string, LostMatch>();
@@ -33,7 +33,7 @@ export const lostDetector: Detector = ({ engine, breadcrumbs }) => {
       added = true;
     }
     if (!added) return;
-    const { score, tier } = lostTier([...matched.values()], now);
+    const { score, tier } = lostTier([...matched.values()], now, config.lost);
     if (tier === 'none' || (tier === 'nudge' && announced !== 'none') || (tier === 'full' && announced === 'full')) return;
     announced = tier;
     const query = searches[searches.length - 1]?.query;

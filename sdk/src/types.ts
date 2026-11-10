@@ -50,6 +50,8 @@ export interface PulseConfig {
    * (with its score) for analysis. Raise a threshold to prompt less, lower it to prompt more.
    */
   scoreThreshold: { rageClick: number; deadClick: number; error: number };
+  /** Cumulative lost-pattern score at which a small nudge appears, and at which the full guide opens. */
+  lost: { nudgeScore: number; fullScore: number };
   formIdleMs: number;
   /** An error only becomes a prompt-worthy trigger if it follows a user click within this window. */
   errorClickWindowMs: number;

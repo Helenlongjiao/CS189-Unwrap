@@ -1,10 +1,8 @@
 import { DECAY_MS, patternFamily, totalScore } from '../scoring';
-import type { Breadcrumb } from '../types';
+import type { Breadcrumb, PulseConfig } from '../types';
 
 // Decay, families and summing live in ../scoring so other detectors score the same way.
 export { DECAY_MS, patternFamily };
-export const NUDGE_SCORE = 20;
-export const FULL_SCORE = 50;
 
 export interface LostPage {
   at: number;
@@ -54,9 +52,13 @@ export interface LostMatch {
   at: number;
 }
 
-export function lostTier(matches: LostMatch[], now: number): { score: number; tier: 'none' | 'nudge' | 'full' } {
+export function lostTier(
+  matches: LostMatch[],
+  now: number,
+  { nudgeScore, fullScore }: PulseConfig['lost'],
+): { score: number; tier: 'none' | 'nudge' | 'full' } {
   const score = totalScore(matches, now);
-  const tier = score >= FULL_SCORE ? 'full' : score >= NUDGE_SCORE ? 'nudge' : 'none';
+  const tier = score >= fullScore ? 'full' : score >= nudgeScore ? 'nudge' : 'none';
   return { score, tier };
 }
 
