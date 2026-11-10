@@ -1,3 +1,6 @@
+import type { LostTuning } from './detectors/lostConfig';
+import type { SiteProfile } from './profile/profile';
+
 export type TriggerType = 'rage_click' | 'dead_click' | 'error' | 'form_abandon' | 'manual' | 'lost';
 
 export type ErrorKind = 'js' | 'promise' | 'console' | 'resource' | 'network' | 'page';
@@ -42,16 +45,8 @@ export interface PulseConfig {
   endpoint: string;
   debug: boolean;
   captureInteractions: boolean;
-  /** `settleMs`: how long after the last click a burst is judged, once we can tell if the page responded. */
-  rageClick: { count: number; windowMs: number; radiusPx: number; settleMs: number };
+  rageClick: { count: number; windowMs: number; radiusPx: number };
   deadClick: { timeoutMs: number };
-  /**
-   * Points a moment needs before it may prompt the user. Below it the moment is still recorded
-   * (with its score) for analysis. Raise a threshold to prompt less, lower it to prompt more.
-   */
-  scoreThreshold: { rageClick: number; deadClick: number; error: number };
-  /** Cumulative lost-pattern score at which a small nudge appears, and at which the full guide opens. */
-  lost: { nudgeScore: number; fullScore: number };
   formIdleMs: number;
   /** An error only becomes a prompt-worthy trigger if it follows a user click within this window. */
   errorClickWindowMs: number;
@@ -71,4 +66,8 @@ export interface PulseConfig {
   accentColor?: string;
   /** Ask the server to write a survey for each moment with a language model, falling back to templates. */
   ai: boolean;
+  /** Site map: reading paths, navbar sections, listings, and funnels. */
+  siteProfile?: SiteProfile;
+  /** Lostness thresholds and which rules are on. Defaults keep reading from scoring. */
+  lost: LostTuning;
 }

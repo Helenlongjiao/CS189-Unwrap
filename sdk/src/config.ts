@@ -1,20 +1,18 @@
+import { DEFAULT_LOST, type LostTuning } from './detectors/lostConfig';
 import type { PulseConfig } from './types';
 
-export type PulseOptions = Partial<Omit<PulseConfig, 'rageClick' | 'deadClick' | 'scoreThreshold' | 'lost'>> & {
+export type PulseOptions = Partial<Omit<PulseConfig, 'rageClick' | 'deadClick' | 'lost'>> & {
   siteKey: string;
   rageClick?: Partial<PulseConfig['rageClick']>;
   deadClick?: Partial<PulseConfig['deadClick']>;
-  scoreThreshold?: Partial<PulseConfig['scoreThreshold']>;
-  lost?: Partial<PulseConfig['lost']>;
+  lost?: Partial<LostTuning>;
 };
 
 export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   debug: false,
   captureInteractions: true,
-  rageClick: { count: 3, windowMs: 700, radiusPx: 30, settleMs: 300 },
+  rageClick: { count: 3, windowMs: 700, radiusPx: 30 },
   deadClick: { timeoutMs: 1000 },
-  scoreThreshold: { rageClick: 20, deadClick: 45, error: 50 },
-  lost: { nudgeScore: 10, fullScore: 50 },
   formIdleMs: 30_000,
   errorClickWindowMs: 3_000,
   cooldownMs: 60_000,
@@ -26,6 +24,7 @@ export const DEFAULTS: Omit<PulseConfig, 'siteKey' | 'endpoint'> = {
   autoOpen: true,
   position: 'bottom-right',
   ai: false,
+  lost: DEFAULT_LOST,
 };
 
 export function resolveConfig(opts: PulseOptions): PulseConfig {
@@ -36,8 +35,7 @@ export function resolveConfig(opts: PulseOptions): PulseConfig {
     endpoint: (opts.endpoint || location.origin).replace(/\/+$/, ''),
     rageClick: { ...DEFAULTS.rageClick, ...opts.rageClick },
     deadClick: { ...DEFAULTS.deadClick, ...opts.deadClick },
-    scoreThreshold: { ...DEFAULTS.scoreThreshold, ...opts.scoreThreshold },
-    lost: { ...DEFAULTS.lost, ...opts.lost },
+    lost: { ...DEFAULT_LOST, ...opts.lost },
   };
 }
 
