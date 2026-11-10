@@ -6,7 +6,7 @@ import { migrate } from './migrate.js';
 
 const port = Number(process.env.PORT) || 4000;
 const pool = createPool();
-const surveyGenerator = createSurveyGenerator({ apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || undefined });
+const surveyGenerator = createSurveyGenerator({ apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL || undefined, baseUrl: process.env.OPENAI_BASE_URL || undefined });
 
 await migrate(pool);
 const server = createApp({ pool, surveyGenerator }).listen(port, () => {
