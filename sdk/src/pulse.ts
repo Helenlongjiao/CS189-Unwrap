@@ -8,6 +8,7 @@ import { lostDetector } from './detectors/lost';
 import { rageClickDetector } from './detectors/rageClick';
 import { describe, findInteractive } from './dom';
 import { onNavigate } from './navigation';
+import { routeFields } from './profile/route';
 import { clientContext } from './client';
 import { mountSurveys } from './surveys/controller';
 import { onTap, type Tap } from './taps';
@@ -87,14 +88,20 @@ export function createPulse(opts: PulseOptions): PulseInstance {
     teardown.push(breadcrumbs.onAdd((crumb) => transport.send({ kind: 'interaction', ...crumb })));
   }
 
-  breadcrumbs.add('page_view', { title: document.title });
-  let lastUrl = safeUrl();
+  const recordPage = () => {
+    const route = routeFields(location.href);
+    breadcrumbs.add('page_view', { title: document.title, identity: route.identity, template: route.template });
+  };
+  recordPage();
+  let lastIdentity = routeFields(location.href).identity;
   teardown.push(
     onNavigate(() => {
-      const url = safeUrl();
-      if (url === lastUrl) return;
-      lastUrl = url;
-      breadcrumbs.add('page_view', { title: document.title });
+      const identity = routeFields(location.href).identity;
+      // replaceState on the same path, query changes, and in-page anchors are not new visits.
+      // A hash route (`#/inbox`) is a new visit. The raw token is not stored.
+      if (identity === lastIdentity) return;
+      lastIdentity = identity;
+      recordPage();
     }),
   );
 
