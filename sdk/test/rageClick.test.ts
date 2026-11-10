@@ -14,9 +14,68 @@ describe('rage click detector', () => {
     h = setup(rageClickDetector);
   });
 
+  const realFetch = window.fetch;
+
   afterEach(() => {
     h.cleanup();
+    window.fetch = realFetch;
     vi.useRealTimers();
+  });
+
+  /** Replaces fetch, then restarts the detector so it watches the replacement. */
+  function withFetch(status: number) {
+    h.cleanup();
+    window.fetch = vi.fn(async () => new Response('{}', { status })) as typeof fetch;
+    h = setup(rageClickDetector);
+  }
+
+  async function clickAndSend(times: number, onResponse?: (res: Response) => void) {
+    button.onclick = async () => onResponse?.(await window.fetch('/api/pay', { method: 'POST' }));
+    for (let i = 0; i < times; i++) {
+      click(button);
+      await vi.advanceTimersByTimeAsync(150);
+    }
+  }
+
+  it('always prompts when a request failed during the burst, even though the page showed an error message', async () => {
+    withFetch(500);
+    await clickAndSend(3, () => {
+      document.getElementById('text')!.textContent = 'Something went wrong';
+    });
+    const prompts = h.triggers.filter((t) => !t.recordOnly);
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0].context.fixedRule).toBe('request-failed');
+    expect(prompts[0].context.signals).toEqual(expect.arrayContaining([expect.stringMatching(/^page-responded:/), expect.stringMatching(/^request-failed:/)]));
+  });
+
+  it('does not prompt for fast clicks when each one sends a request that succeeds', async () => {
+    withFetch(200);
+    await clickAndSend(5, () => {
+      document.getElementById('text')!.textContent = String(Math.random());
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(h.triggers.filter((t) => !t.recordOnly)).toHaveLength(0);
+    expect(h.triggers[0].context.signals).toEqual(expect.arrayContaining([expect.stringMatching(/^request-ok:/)]));
+  });
+
+  it('counts "no request went out" as extra evidence when nothing responded either', () => {
+    for (let i = 0; i < 3; i++) click(button);
+    expect(h.triggers[0].context.signals).toContain('no-request:10');
+  });
+
+  it('adds points for frantic mouse movement during the burst', async () => {
+    const move = (x: number, y: number) => document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+    for (let i = 0; i < 3; i++) {
+      click(button, 100, 100);
+      for (let j = 0; j < 6; j++) move(100 + (j % 2 ? 25 : -25), 100 + j * 3);
+      await vi.advanceTimersByTimeAsync(60);
+    }
+    expect(h.triggers[0].context.signals).toEqual(expect.arrayContaining([expect.stringMatching(/^frantic-mouse:/)]));
+  });
+
+  it('does not add the frantic-mouse points when the mouse stays still', () => {
+    for (let i = 0; i < 3; i++) click(button, 100, 100);
+    expect(h.triggers[0].context.signals).not.toEqual(expect.arrayContaining([expect.stringMatching(/^frantic-mouse:/)]));
   });
 
   it('fires once when clicks cluster in time and space on a control that does not respond', () => {
