@@ -18,8 +18,8 @@ const DETECTORS: Record<ScenarioDetector, Detector> = {
  * (fixed thresholds only). Re-measure by checking out the commit before the scoring change.
  */
 const BASELINE = {
-  rage_click: { truePositive: 6 / 6, falsePositive: 7 / 8 },
-  dead_click: { truePositive: 5 / 5, falsePositive: 5 / 7 },
+  rage_click: { truePositive: 7 / 7, falsePositive: 8 / 9 },
+  dead_click: { truePositive: 5 / 5, falsePositive: 6 / 8 },
   error: { truePositive: 5 / 5, falsePositive: 7 / 9 },
 } as const;
 

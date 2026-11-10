@@ -167,9 +167,17 @@ Included variants: disabled controls (for a rage click or dead click on a greyed
 
 | Trigger | Rule |
 | --- | --- |
-| Rage click | 3+ clicks within 700 ms, within 30 px of each other |
-| Dead click | Clicking something interactive produces no DOM change or navigation within 1 s, or the control is disabled |
-| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click |
+| Rage click | 3+ clicks within 700 ms, within 30 px of each other, **plus** evidence the page is broken (see below). Always prompts if a request failed during the burst or the control is disabled |
+| Dead click | Clicking something interactive produces no DOM change, submit, scroll, navigation or network request within 1 s, or the control is disabled. Scored; needs 45 points |
+| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click and scores 50 points |
+
+Rage clicks are a page-break signal, separate from the lostness score. A burst is scored from several layers of evidence, and prompts at 50 points (`scoreThreshold.rageClick`) unless the fixed rule above applies:
+
+| Adds points | Takes points away |
+| --- | --- |
+| More clicks (5+ is strong), disabled control, page did not respond, no request went out, a request failed, frantic mouse movement | Page responded (a number went up, a menu opened), a request succeeded (the page is working, maybe slow), plain text, a text field |
+
+Every event below its threshold is still recorded with its `score` and `signals`, so thresholds can be tuned from real data. Open the console with `data-debug="true"` to see them.
 | Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
 
 To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.

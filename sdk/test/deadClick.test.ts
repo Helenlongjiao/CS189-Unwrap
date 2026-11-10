@@ -34,6 +34,22 @@ describe('dead click detector', () => {
     expect(h.triggers[0].element?.label).toBe('Download report');
   });
 
+  it('does not fire when the click sends a request, even if nothing on the page has changed yet', async () => {
+    const realFetch = window.fetch;
+    h.cleanup();
+    window.fetch = vi.fn(async () => new Response('{}', { status: 200 })) as typeof fetch;
+    h = setup(deadClickDetector);
+    try {
+      const dead = document.getElementById('dead')!;
+      dead.addEventListener('click', () => void window.fetch('/api/report'));
+      click(dead);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(h.triggers).toHaveLength(0);
+    } finally {
+      window.fetch = realFetch;
+    }
+  });
+
   it('does not fire when the click changes the page', async () => {
     click(document.getElementById('live')!);
     await vi.advanceTimersByTimeAsync(1000);
