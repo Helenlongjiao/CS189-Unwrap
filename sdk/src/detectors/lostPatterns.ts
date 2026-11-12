@@ -11,7 +11,9 @@ import {
   helpClicks,
   maxVisits,
   pagesAfterError,
+  pagesAfterHelp,
   quickReturns,
+  readingForward,
   repeatedLabel,
   scrollReversals,
   searchesIn,
@@ -69,23 +71,24 @@ for (const [span, windowMs, weight] of [
   weak(`cycle-${span - 1}-${windowMs / 1000}s`, weight, (s) => hasReturnCycle(seq(s, windowMs), span));
 }
 
-// Several different pages in a short stretch.
+// Several different pages in a short stretch. Up to five pages is ordinary browsing (home →
+// category → product → cart → checkout), so those stay below the nudge line on their own.
 for (const [count, windowMs, weight] of [
-  [3, 15_000, 16],
-  [3, 30_000, 14],
-  [3, 60_000, 12],
-  [4, 20_000, 18],
-  [4, 45_000, 16],
-  [4, 90_000, 14],
-  [5, 45_000, 20],
-  [5, 90_000, 18],
-  [5, 180_000, 14],
-  [6, 60_000, 22],
-  [6, 120_000, 18],
-  [6, 240_000, 14],
-  [7, 90_000, 22],
-  [7, 180_000, 18],
-  [8, 180_000, 20],
+  [3, 15_000, 8],
+  [3, 30_000, 6],
+  [3, 60_000, 5],
+  [4, 20_000, 9],
+  [4, 45_000, 7],
+  [4, 90_000, 6],
+  [5, 45_000, 9],
+  [5, 90_000, 8],
+  [5, 180_000, 6],
+  [6, 60_000, 14],
+  [6, 120_000, 11],
+  [6, 240_000, 8],
+  [7, 90_000, 16],
+  [7, 180_000, 13],
+  [8, 180_000, 16],
 ] as const) {
   weak(`hop-${count}-${windowMs / 1000}s`, weight, (s) => distinctPages(s.pages, s.now, windowMs) >= count);
 }
@@ -147,16 +150,17 @@ weak('search-then-help-60s', 22, (s) => searchesIn(s, 60_000).length >= 1 && hel
 
 weak('help-once-180s', 16, (s) => helpClicks(s, 180_000) >= 1);
 weak('help-twice-120s', 22, (s) => helpClicks(s, 120_000) >= 2);
-weak('help-then-hop-30s', 18, (s) => helpClicks(s, 30_000) >= 1 && distinctPages(s.pages, s.now, 30_000) >= 3);
+weak('help-then-hop-30s', 18, (s) => pagesAfterHelp(s, 30_000) >= 3);
 weak('help-and-scroll-60s', 18, (s) => helpClicks(s, 60_000) >= 1 && scrollReversals(s, 60_000) >= 3);
 
-// Clicking around a page that never changes.
+// Clicking around a page that never changes. A handful of clicks is a gallery or a filter
+// panel; six or more starts to look like searching for something that is not there.
 for (const [count, windowMs, weight] of [
-  [4, 20_000, 14],
-  [5, 30_000, 16],
+  [4, 20_000, 7],
+  [5, 30_000, 9],
   [6, 45_000, 18],
   [8, 60_000, 20],
-  [4, 60_000, 12],
+  [4, 60_000, 6],
   [6, 120_000, 16],
   [10, 120_000, 22],
 ] as const) {
@@ -189,7 +193,7 @@ for (const [dwellMs, weight] of [
   [60_000, 18],
   [90_000, 22],
 ] as const) {
-  weak(`dwell-${dwellMs / 1000}s-no-click`, weight, (s) => dwellNoClick(s, dwellMs));
+  weak(`dwell-${dwellMs / 1000}s-no-click`, weight, (s) => dwellNoClick(s, dwellMs) && !readingForward(s));
 }
 weak('dwell-30s-and-scroll', 18, (s) => dwellNoClick(s, 30_000) && scrollReversals(s, 60_000) >= 2);
 

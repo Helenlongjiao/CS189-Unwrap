@@ -98,23 +98,25 @@ export function measureLostBenchmark(results: LostReplayOutcome[]) {
 }
 
 /**
- * CI ceilings for FP, eligible prompt FP, weighted FP, and overshoot rates. Taken from a run of the first version of lostness detector.
+ * CI ceilings for FP, eligible prompt FP, weighted FP, and overshoot rates. Tightened after the
+ * hop/bounce rebalance; each leaves room for one more story to slip before CI fails.
+ * First-version ceilings were FP 11/17, weighted 0.34, overshoot 4/6.
  */
 export const LOST_BASELINE = {
-  maxFalsePositiveRate: 11 / 17,
-  maxEligibleFalsePositiveRate: 11 / 17,
-  maxWeightedFalsePositiveRate: 0.34,
-  maxOvershootRate: 4 / 6,
+  maxFalsePositiveRate: 3 / 17,
+  maxEligibleFalsePositiveRate: 3 / 17,
+  maxWeightedFalsePositiveRate: 0.1,
+  maxOvershootRate: 2 / 6,
   minTruePositiveRate: 0.9,
 } as const;
 /** Snapshot of the last baseline run */
 export const LOST_BASELINE_SNAPSHOT = {
-  measuredFalsePositiveRate: 10 / 17,
-  measuredEligibleFalsePositiveRate: 10 / 17,
-  measuredWeightedFalsePositiveRate: 0.324,
+  measuredFalsePositiveRate: 1 / 17,
+  measuredEligibleFalsePositiveRate: 1 / 17,
+  measuredWeightedFalsePositiveRate: 0.029,
   measuredTruePositiveRate: 14 / 14,
-  measuredOvershootRate: 3 / 6,
+  measuredOvershootRate: 0 / 6,
   competentTotal: 17,
   stuckTotal: 14,
-  measuredAt: '2026-03-11',
+  measuredAt: '2026-11-11',
 } as const;
