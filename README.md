@@ -64,7 +64,7 @@ The project will progress through five areas:
 
 ## Run the demos
 
-Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all five demo sites:
+Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all four demo sites:
 
 ```bash
 git clone https://github.com/Helenlongjiao/CS189-Unwrap.git
@@ -77,13 +77,12 @@ Leave that terminal open. Then open any of these. Each page loads the embed from
 
 | Site | URL |
 | --- | --- |
-| Skyline Air | http://localhost:5173 |
-| Northline | http://localhost:5174 |
-| Harbor Credit Union | http://localhost:5175 |
-| Westbridge University | http://localhost:5176 |
-| Linden Clinic | http://localhost:5177 |
+| Southwest | http://localhost:5173 |
+| Amazon | http://localhost:5174 |
+| Expedia | http://localhost:5175 |
+| Lululemon | http://localhost:5176 |
 
-Ports 4000 and 5173–5177 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
+These are original lookalike demos for testing (not affiliated with those brands). Ports 4000 and 5173–5176 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
 
 The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
 
@@ -95,7 +94,7 @@ AI-written surveys are optional. Copy `.env.example` to `.env` in this folder an
 | --- | --- |
 | `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
 | `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
-| `test-site/` | Five demo sites the embed is installed on |
+| `test-site/` | Four deep demo sites the embed is installed on |
 | `docker-compose.yml` | One-command run of the database, API, and demo sites |
 
 ## Getting Started
