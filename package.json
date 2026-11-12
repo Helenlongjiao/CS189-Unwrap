@@ -8,6 +8,7 @@
   "scripts": {
     "build": "npm run build -w sdk",
     "test": "npm test -w sdk && npm test -w server",
+    "test:benchmark": "npm run test:benchmark -w sdk",
     "db:migrate": "npm run db:migrate -w server",
     "dev": "npm run build && npm run dev -w server"
   }

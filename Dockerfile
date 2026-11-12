@@ -18,5 +18,5 @@ COPY --from=build /app/sdk/dist sdk/dist
 COPY server server
 COPY test-site test-site
 COPY docker/start.mjs docker/start.mjs
-EXPOSE 4000 5173 5174 5175 5176 5177
+EXPOSE 4000 5173 5174 5175 5176
 CMD ["node", "docker/start.mjs"]
