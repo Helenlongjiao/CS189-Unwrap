@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { bestMatches } from '../src/guideMatch.js';
+import { bestMatches, tokens } from '../src/guideMatch.js';
 
 const pages = [
   {
@@ -74,6 +74,36 @@ describe('guide matching', () => {
 
     const hours = bestMatches('i want to see state street hours', site, 'http://localhost:5174/', 3);
     assert.deepEqual(hours.map((match) => match.url), ['http://localhost:5174/stores.html']);
+  });
+});
+
+describe('singular and plural count as the same word', () => {
+  it('cuts plural endings, but leaves words that only look plural', () => {
+    assert.deepEqual(tokens('Returns & exchanges'), ['return', 'exchange']);
+    assert.deepEqual(tokens('stores cards fees policies boxes watches glasses'), ['store', 'card', 'fee', 'policy', 'box', 'watch', 'glass']);
+    assert.deepEqual(tokens('status address bus this gas'), ['status', 'address', 'bus', 'gas']);
+  });
+
+  const lulu = [
+    { url: 'http://lulu.test/', title: 'Home', headings: ['Feel grounded'], links: [], controls: [], excerpt: 'Women Men Stores Help' },
+    { url: 'http://lulu.test/returns.html', title: 'Returns', headings: ['Returns & exchanges'], links: [], controls: [], excerpt: 'Unworn items can be returned' },
+    { url: 'http://lulu.test/stores.html', title: 'Stores', headings: ['Stores', 'State Street'], links: [], controls: [], excerpt: 'Hours: 10am–7pm daily' },
+    { url: 'http://lulu.test/help.html', title: 'Help', headings: ['Help'], links: [], controls: [], excerpt: 'Size guide · Store hours' },
+  ];
+
+  it('"exchange" finds the page that says "exchanges"', () => {
+    assert.equal(bestMatches('exchange', lulu, 'http://lulu.test/', 3)[0]?.url, 'http://lulu.test/returns.html');
+  });
+
+  it('"store near me" puts the Stores page first', () => {
+    assert.equal(bestMatches('store near me', lulu, 'http://lulu.test/', 3)[0]?.url, 'http://lulu.test/stores.html');
+  });
+
+  it('hours questions still work with plural and singular words', () => {
+    assert.equal(bestMatches('when does state street close', lulu, 'http://lulu.test/', 3)[0]?.url, 'http://lulu.test/stores.html');
+    assert.equal(bestMatches('store hours', lulu, 'http://lulu.test/', 3)[0]?.url, 'http://lulu.test/stores.html');
+    // "closes" is an hours word; after making words singular it must still count as one ("close").
+    assert.ok(bestMatches('when does it closes', lulu, 'http://lulu.test/', 3).some((m) => m.url === 'http://lulu.test/stores.html'));
   });
 });
 

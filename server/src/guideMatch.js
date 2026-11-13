@@ -1,5 +1,5 @@
 const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'and', 'or', 'for', 'on', 'in', 'my', 'me', 'i', 'is', 'it', 'how', 'do', 'where', 'can', 'find', 'get', 'please', 'want', 'need', 'looking', 'what', 'this', 'that', 'trying', 'try', 'go', 'going', 'see', 'show', 'take', 'just', 'page']);
-const HOURS = new Set(['hours', 'hour', 'open', 'opening', 'closes', 'closing', 'schedule']);
+const HOURS = new Set(['hours', 'hour', 'open', 'opening', 'closes', 'closing', 'schedule'].map((word) => singular(word)));
 const TIME = /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i;
 
 // Meaning search settings. Start values from the plan; step 7 tunes them with the quiz (npm run eval:guide).
@@ -23,11 +23,24 @@ export function normUrl(url) {
   }
 }
 
+/**
+ * Singular form of a word, so "exchanges" matches "exchange" and "stores" matches "store".
+ * Short words and words that only look plural ("status", "address", "this") are left alone.
+ */
+export function singular(word) {
+  if (word.length <= 3 || /(ss|us|is)$/.test(word)) return word;
+  if (/(ss|x|z|ch|sh)es$/.test(word)) return word.slice(0, -2);
+  if (word.endsWith('ies')) return `${word.slice(0, -3)}y`;
+  if (word.endsWith('s')) return word.slice(0, -1);
+  return word;
+}
+
 export function tokens(text) {
   return String(text || '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
+    .map(singular)
     .filter((word) => word.length > 1 && !STOP.has(word));
 }
 
