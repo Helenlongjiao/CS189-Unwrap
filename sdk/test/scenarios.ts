@@ -8,9 +8,8 @@ import { ENDPOINT, click, pointerdown } from './harness';
  *  - `prompt`: a user who is really stuck. A miss here lowers the true-positive rate.
  *  - `quiet`: normal behavior or noise that looks like friction. A prompt here is a false positive.
  *
- * Pages are modeled on the demo sites in test-site/ (Skyline Air's dead "Apply" button, the
- * checkout crash, Harbor's "Review transfer" button, ...). To add a case recorded from a real
- * session, copy the page structure into `html` and replay the events in `play`.
+ * Pages are modeled on demo sites in test-site/ (legacy UCSB flows plus Southwest, Amazon,
+ * Expedia, Lululemon — see test-site/README.md “Friction hooks”).
  */
 export type ScenarioDetector = 'rage_click' | 'dead_click' | 'error';
 
@@ -601,6 +600,491 @@ export const scenarios: Scenario[] = [
     play: async ({ tick }) => {
       await tick(5000);
       console.error('deprecated API used');
+    },
+  },
+
+  // ───────────────────────── demo sites (test-site/) ─────────────────────────
+  {
+    id: 'rage-sw-promo-apply',
+    detector: 'rage_click',
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Hammers the promo Apply button on Purchase (handler is a no-op)',
+    html: '<button class="btn-ghost" type="button" id="promo">Apply</button>',
+    prepare: () => document.getElementById('promo')!.addEventListener('click', () => {}),
+    play: async ({ $, burst, tick }) => {
+      await burst($('#promo'), 4, 90);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'rage-amazon-buy-now',
+    detector: 'rage_click',
+    source: 'Amazon · Product',
+    expect: 'prompt',
+    what: 'Repeatedly presses the disabled Buy Now button on the PDP buy box',
+    html: '<button class="btn" type="button" id="buy" disabled>Buy Now</button>',
+    play: async ({ $, hammerDisabled, tick }) => {
+      await hammerDisabled($('#buy'), 4, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'rage-lulu-size-6',
+    detector: 'rage_click',
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Clicks unavailable size 6 repeatedly (preventDefault only)',
+    html: '<button class="size dead" type="button" id="noop-size">6</button>',
+    prepare: () =>
+      document.getElementById('noop-size')!.addEventListener('click', (e) => {
+        e.preventDefault();
+      }),
+    play: async ({ $, burst, tick }) => {
+      await burst($('#noop-size'), 4, 110);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'dead-sw-promo',
+    detector: 'dead_click',
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Single click on promo Apply with no effect',
+    html: '<button type="button" id="promo">Apply</button>',
+    prepare: () => document.getElementById('promo')!.addEventListener('click', () => {}),
+    play: async ({ $, click, tick }) => {
+      click($('#promo'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'dead-amazon-prime-filter',
+    detector: 'dead_click',
+    source: 'Amazon · Search',
+    expect: 'prompt',
+    what: 'Clicks the Prime only filter chip (documented dead click)',
+    html: '<div class="chip" id="dead-filter" role="button" tabindex="0">Prime only</div>',
+    prepare: () => document.getElementById('dead-filter')!.addEventListener('click', () => {}),
+    play: async ({ $, click, tick }) => {
+      click($('#dead-filter'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'dead-lulu-size-6',
+    detector: 'dead_click',
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Clicks size 6 once; size is a no-op',
+    html: '<button type="button" id="noop-size">6</button>',
+    prepare: () =>
+      document.getElementById('noop-size')!.addEventListener('click', (e) => {
+        e.preventDefault();
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#noop-size'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'dead-expedia-seat-map-twice',
+    detector: 'dead_click',
+    source: 'Expedia · Flights',
+    expect: 'prompt',
+    what: 'Clicks a dead-end Seat map control twice',
+    html: '<a class="btn" href="#" id="seat" onclick="return false">Seat map</a>',
+    play: async ({ $, click, tick }) => {
+      click($('#seat'));
+      await tick(1500);
+      click($('#seat'));
+      await tick(1500);
+    },
+  },
+  {
+    id: 'quiet-amazon-add-to-cart',
+    detector: 'dead_click',
+    source: 'Amazon · Product',
+    expect: 'quiet',
+    what: 'Clicks Add to Cart, which updates state',
+    html: '<button type="button" id="cart">Add to Cart</button><span id="msg"></span>',
+    prepare: () => {
+      document.getElementById('cart')!.addEventListener('click', () => {
+        document.getElementById('msg')!.textContent = 'Added';
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#cart'));
+      await tick(1500);
+    },
+  },
+  {
+    id: 'quiet-lulu-size-2',
+    detector: 'rage_click',
+    source: 'Lululemon · Product',
+    expect: 'quiet',
+    what: 'Selects an in-stock size twice (state changes)',
+    html: '<button type="button" class="size on" id="sz">2</button>',
+    prepare: () => {
+      const el = document.getElementById('sz')!;
+      el.addEventListener('click', () => el.classList.toggle('on'));
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#sz'), 2, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'error-sw-purchase',
+    detector: 'error',
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Purchase submit; POST /api/book fails and the page throws',
+    html: '<form id="book"><button type="submit" id="purchase">Purchase</button></form>',
+    prepare: () => {
+      stubFetch((url) => (url.includes('/api/book') ? fail(500) : ok()));
+      document.getElementById('book')!.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await window.fetch('/api/book', { method: 'POST', body: '{}' });
+        jsError('inventory service timeout');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#purchase'));
+      await tick(500);
+    },
+  },
+  {
+    id: 'quiet-expedia-select',
+    detector: 'error',
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks Select on a fare with a successful follow-up request',
+    html: '<button type="button" id="select">Select</button>',
+    prepare: () => stubFetch(() => ok()),
+    play: async ({ $, click, tick }) => {
+      click($('#select'));
+      await window.fetch('/api/trip');
+      await tick(500);
+    },
+  },
+  {
+    id: 'dead-amazon-buy-now-disabled',
+    detector: 'dead_click',
+    source: 'Amazon · Product',
+    expect: 'prompt',
+    what: 'Single press on disabled Buy Now on the PDP buy box',
+    html: '<button class="btn" type="button" id="buy" disabled>Buy Now</button>',
+    play: async ({ $, pointerdown, tick }) => {
+      pointerdown($('#buy'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'rage-expedia-seat-map',
+    detector: 'rage_click',
+    source: 'Expedia · Flights',
+    expect: 'prompt',
+    what: 'Hammers the dead-end Seat map control on a fare card',
+    html: '<a class="btn" href="#" id="seat" onclick="return false">Seat map</a>',
+    play: async ({ $, burst, tick }) => {
+      await burst($('#seat'), 4, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'quiet-sw-select-flight',
+    detector: 'dead_click',
+    source: 'Southwest · Flights',
+    expect: 'quiet',
+    what: 'Clicks Select on a flight; navigates to the next step',
+    html: '<a class="btn-yellow" href="/flight.html" id="select">Select</a>',
+    prepare: () => {
+      document.getElementById('select')!.addEventListener('click', (e) => {
+        e.preventDefault();
+        history.pushState({}, '', '/flight.html');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#select'));
+      await tick(500);
+    },
+  },
+  {
+    id: 'error-sw-seat-map-click',
+    detector: 'error',
+    source: 'Southwest · Flights',
+    expect: 'prompt',
+    what: 'View seat map after click; broken flow throws like the demo 404 hook',
+    html: '<a class="btn-ghost" href="/seat-map" id="seat">View seat map</a>',
+    play: async ({ $, click, tick }) => {
+      click($('#seat'));
+      await tick(250);
+      jsError('Failed to load seat map resource');
+    },
+  },
+  {
+    id: 'error-expedia-seat-map-click',
+    detector: 'error',
+    source: 'Expedia · Flights',
+    expect: 'prompt',
+    what: 'Seat map after click; broken flow throws like the demo 404 hook',
+    html: '<a class="btn" href="/seat-map" id="seat">Seat map</a>',
+    play: async ({ $, click, tick }) => {
+      click($('#seat'));
+      await tick(250);
+      jsError('Seat map unavailable');
+    },
+  },
+  {
+    id: 'quiet-amazon-rage-quantity',
+    detector: 'rage_click',
+    source: 'Amazon · Product',
+    expect: 'quiet',
+    what: 'Taps quantity + on the PDP; count updates each time',
+    html: '<button type="button" id="plus">+</button><span id="qty">1</span>',
+    prepare: () => {
+      document.getElementById('plus')!.addEventListener('click', () => {
+        const qty = document.getElementById('qty')!;
+        qty.textContent = String(Number(qty.textContent) + 1);
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#plus'), 4, 90);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'error-amazon-checkout-crash',
+    detector: 'error',
+    source: 'Amazon · Checkout',
+    expect: 'prompt',
+    what: 'Place order fails; POST returns 500 then first-party script throws',
+    html: '<button type="button" id="order">Place order</button>',
+    prepare: () => {
+      stubFetch((url) => (url.includes('/api/order') ? fail(500) : ok()));
+      document.getElementById('order')!.addEventListener('click', async () => {
+        await window.fetch('/api/order', { method: 'POST', body: '{}' });
+        jsError('order service unavailable');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#order'));
+      await tick(500);
+    },
+  },
+  {
+    id: 'quiet-amazon-error-image',
+    detector: 'error',
+    source: 'Amazon · Product',
+    expect: 'quiet',
+    what: 'Hero image fails to load after a click on the gallery thumb',
+    html: '<button type="button" id="thumb">View image</button><img id="hero" alt="Product" />',
+    play: async ({ $, click, tick }) => {
+      click($('#thumb'));
+      await tick(400);
+      const img = $('#hero');
+      img.setAttribute('src', 'https://cdn.example.test/missing-hero.webp');
+    },
+  },
+  {
+    id: 'quiet-expedia-rage-select',
+    detector: 'rage_click',
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks Select twice quickly; fare state advances',
+    html: '<button type="button" id="select">Select</button><span id="step">fares</span>',
+    prepare: () => {
+      document.getElementById('select')!.addEventListener('click', () => {
+        document.getElementById('step')!.textContent = 'trip';
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#select'), 2, 120);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'quiet-expedia-dead-select',
+    detector: 'dead_click',
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'One Select click opens trip summary',
+    html: '<button type="button" id="select">Select</button>',
+    prepare: () => {
+      document.getElementById('select')!.addEventListener('click', () => {
+        history.pushState({}, '', '/trip.html');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#select'));
+      await tick(1200);
+    },
+  },
+  {
+    id: 'quiet-harbor-rage-balances',
+    detector: 'rage_click',
+    source: 'Harbor Credit Union · Accounts',
+    expect: 'quiet',
+    what: 'Clicks Refresh balances three times; each response updates the label',
+    html: '<button type="button" id="refresh">Refresh balances</button><span id="bal">$1,200</span>',
+    prepare: () => {
+      let n = 1200;
+      document.getElementById('refresh')!.addEventListener('click', () => {
+        n += 5;
+        document.getElementById('bal')!.textContent = `$${n.toLocaleString()}`;
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#refresh'), 3, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'quiet-harbor-dead-rates',
+    detector: 'dead_click',
+    source: 'Harbor Credit Union · Index',
+    expect: 'quiet',
+    what: 'Clicks See rates once; APR text appears',
+    html: '<button type="button" id="rates">See rates</button><p id="apr"></p>',
+    prepare: () => {
+      document.getElementById('rates')!.addEventListener('click', () => {
+        document.getElementById('apr')!.textContent = 'Savings 4.25% APR';
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#rates'));
+      await tick(1200);
+    },
+  },
+  {
+    id: 'rage-linden-dead-book',
+    detector: 'rage_click',
+    source: 'Linden Clinic · Appointments',
+    expect: 'prompt',
+    what: 'Hammers Book slot when the handler is a no-op',
+    html: '<button type="button" id="book">Book slot</button>',
+    prepare: () => document.getElementById('book')!.addEventListener('click', () => {}),
+    play: async ({ $, burst, tick }) => {
+      await burst($('#book'), 4, 90);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'dead-linden-dead-book',
+    detector: 'dead_click',
+    source: 'Linden Clinic · Appointments',
+    expect: 'prompt',
+    what: 'Clicks Book slot once with no effect',
+    html: '<button type="button" id="book">Book slot</button>',
+    prepare: () => document.getElementById('book')!.addEventListener('click', () => {}),
+    play: async ({ $, click, tick }) => {
+      click($('#book'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'quiet-lulu-dead-size-2',
+    detector: 'dead_click',
+    source: 'Lululemon · Product',
+    expect: 'quiet',
+    what: 'Selects in-stock size 2 once',
+    html: '<button type="button" id="sz">2</button>',
+    prepare: () => {
+      document.getElementById('sz')!.addEventListener('click', (e) => {
+        (e.currentTarget as HTMLElement).classList.add('on');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#sz'));
+      await tick(1200);
+    },
+  },
+  {
+    id: 'error-lulu-add-bag',
+    detector: 'error',
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Add to bag throws after inventory check fails',
+    html: '<button type="button" id="add">Add to bag</button>',
+    prepare: () => {
+      document.getElementById('add')!.addEventListener('click', () => {
+        jsError('inventory lookup failed');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#add'));
+      await tick(500);
+    },
+  },
+  {
+    id: 'quiet-lulu-error-timer',
+    detector: 'error',
+    source: 'Lululemon · Product',
+    expect: 'quiet',
+    what: 'PDP logs a timer warning with no user click',
+    html: '<p>Product</p>',
+    play: async ({ tick }) => {
+      await tick(4000);
+      console.error('recommendations widget slow');
+    },
+  },
+  {
+    id: 'rage-northline-dead-apply',
+    detector: 'rage_click',
+    source: 'Northline · Shop',
+    expect: 'prompt',
+    what: 'Hammers Apply coupon on cart; button has no handler',
+    html: '<button type="button" id="apply">Apply coupon</button>',
+    prepare: () => document.getElementById('apply')!.addEventListener('click', () => {}),
+    play: async ({ $, burst, tick }) => {
+      await burst($('#apply'), 4, 85);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'dead-northline-dead-chip',
+    detector: 'dead_click',
+    source: 'Northline · Shop',
+    expect: 'prompt',
+    what: 'Clicks a Sale filter chip once; nothing changes',
+    html: '<div role="button" tabindex="0" id="chip">Sale</div>',
+    prepare: () => document.getElementById('chip')!.addEventListener('click', () => {}),
+    play: async ({ $, click, tick }) => {
+      click($('#chip'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'quiet-sw-rage-select',
+    detector: 'rage_click',
+    source: 'Southwest · Flights',
+    expect: 'quiet',
+    what: 'Double-taps Select on a fare; navigation fires',
+    html: '<a class="btn-yellow" href="/flight.html" id="select">Select</a>',
+    prepare: () => {
+      document.getElementById('select')!.addEventListener('click', (e) => {
+        e.preventDefault();
+        history.pushState({}, '', '/flight.html');
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#select'), 2, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'quiet-sw-error-check-in',
+    detector: 'error',
+    source: 'Southwest · Checkout',
+    expect: 'quiet',
+    what: 'Check in succeeds after click; no thrown error',
+    html: '<button type="button" id="checkin">Check in</button>',
+    prepare: () => stubFetch(() => ok()),
+    play: async ({ $, click, tick }) => {
+      click($('#checkin'));
+      await window.fetch('/api/check-in');
+      await tick(500);
     },
   },
 ];
