@@ -161,10 +161,10 @@ export function cosineSimilarity(a, b) {
 }
 
 /** Pages at or above the cutoff, closest in meaning first. Pages without an embedding are skipped. */
-function meaningRanked(queryEmbedding, pages) {
+function meaningRanked(queryEmbedding, pages, minSimilarity) {
   return pages
     .map((page) => ({ page, similarity: cosineSimilarity(queryEmbedding, page.embedding) }))
-    .filter(({ similarity }) => similarity >= MIN_SIMILARITY)
+    .filter(({ similarity }) => similarity >= minSimilarity)
     .sort((a, b) => b.similarity - a.similarity)
     .map(({ page }) => page);
 }
@@ -195,11 +195,12 @@ function mergeRanked(keywordList, meaningList) {
 /**
  * Up to `limit` pages for the visitor's question. With `queryEmbedding`, keyword and meaning results are merged
  * with RRF; without it (no key, or OpenAI failed), this is keyword search alone, exactly as before.
+ * `minSimilarity` is only for the quiz script (npm run eval:guide) to compare cutoffs; the server uses the default.
  */
-export function bestMatches(query, pages, fromUrl, limit = 3, { queryEmbedding = null } = {}) {
+export function bestMatches(query, pages, fromUrl, limit = 3, { queryEmbedding = null, minSimilarity = MIN_SIMILARITY } = {}) {
   const keywordList = keywordRanked(query, pages);
   const ranked = queryEmbedding
-    ? mergeRanked(keywordList, meaningRanked(queryEmbedding, pages))
+    ? mergeRanked(keywordList, meaningRanked(queryEmbedding, pages, minSimilarity))
     : keywordList.map((page) => ({ page, keywordPos: 0 }));
   return ranked.slice(0, limit).map(({ page, keywordPos }) => ({
     url: page.url,

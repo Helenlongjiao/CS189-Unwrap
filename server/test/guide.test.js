@@ -122,6 +122,13 @@ describe('guide matching with meaning search', () => {
     assert.deepEqual(unrelated, []);
   });
 
+  it('lets the quiz script try a different cutoff without changing the default', () => {
+    const at = (minSimilarity) => urls(bestMatches('luggage', luggageSite, 'http://air.test/', 6, { queryEmbedding: QUESTION, minSimilarity }));
+    assert.deepEqual(at(0.4), ['/bags.html', '/check-in.html']);
+    assert.deepEqual(at(0.2), ['/bags.html', '/check-in.html', '/help.html', '/seats.html']);
+    assert.deepEqual(at(undefined), ['/bags.html', '/check-in.html', '/help.html'], 'default is still 0.3');
+  });
+
   it('A3. RRF puts a page that is high in both lists above a page that is #1 in only one', () => {
     const site = [
       // Keyword #1 (word in title), but unrelated by meaning.
