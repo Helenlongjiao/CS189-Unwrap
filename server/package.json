@@ -11,6 +11,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "db:migrate": "node scripts/migrate.js",
+    "eval:guide": "node scripts/guide-eval.js",
     "pretest": "createdb pulse_test 2>/dev/null || true",
     "test": "node --test --test-concurrency=1 test/*.test.js"
   },
