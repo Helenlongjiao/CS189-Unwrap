@@ -14,9 +14,9 @@ export const FRICTION_DETECTORS: Record<ScenarioDetector, Detector> = {
 };
 
 export const FRICTION_BASELINE = {
-  rage_click: { truePositive: 6 / 6, falsePositive: 7 / 8 },
-  dead_click: { truePositive: 5 / 5, falsePositive: 5 / 7 },
-  error: { truePositive: 5 / 5, falsePositive: 7 / 9 },
+  rage_click: { truePositive: 6 / 6, falsePositive: 8 / 9 },
+  dead_click: { truePositive: 5 / 5, falsePositive: 6 / 9 },
+  error: { truePositive: 5 / 5, falsePositive: 8 / 10 },
 } as const;
 
 export interface FrictionReplayOutcome {
