@@ -83,10 +83,9 @@ kids.push(run(['test-site/serve-all.mjs']));
 
 console.log('');
 console.log('Pulse is up. Open a demo (each page loads the embed from port 4000):');
-console.log('  Skyline Air            http://localhost:5173');
-console.log('  Northline              http://localhost:5174');
-console.log('  Harbor Credit Union    http://localhost:5175');
-console.log('  Westbridge University  http://localhost:5176');
-console.log('  Linden Clinic          http://localhost:5177');
-console.log(`  API                    http://localhost:${port}/health`);
+console.log('  Southwest   http://localhost:5173');
+console.log('  Amazon      http://localhost:5174');
+console.log('  Expedia     http://localhost:5175');
+console.log('  Lululemon   http://localhost:5176');
+console.log(`  API         http://localhost:${port}/health`);
 console.log('');

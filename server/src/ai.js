@@ -121,14 +121,20 @@ export function sanitizeSurvey(raw) {
 }
 
 /** Returns null when no API key is configured, so the SDK falls back to the stored templates. */
-export function createSurveyGenerator({ apiKey, model = 'gpt-4o-mini', timeoutMs = 10_000, fetchImpl = fetch } = {}) {
+export function createSurveyGenerator({
+  apiKey,
+  model = 'gpt-4o-mini',
+  baseUrl = 'https://api.openai.com/v1',
+  timeoutMs = 10_000,
+  fetchImpl = fetch,
+} = {}) {
   if (!apiKey) return null;
   return {
     model,
     async generate(trigger, client) {
       const context = describeForModel(trigger, client);
       const started = Date.now();
-      const res = await fetchImpl('https://api.openai.com/v1/chat/completions', {
+      const res = await fetchImpl(`${baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         signal: AbortSignal.timeout(timeoutMs),
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Southwest Airlines - Book a Flight</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="http://localhost:4000/sdk.js?v=6" data-site-key="pk_dev_local" data-limits="off" data-ai="true" data-debug="true" async></script>
+</head>
+<body>
+  <div class="util">
+    <a href="#">Log in</a>
+    <a href="#">Create account</a>
+    <a href="#">Español</a>
+  </div>
+  <header class="primary">
+    <a class="wordmark" href="/" aria-label="Southwest home"><svg viewBox="0 0 120 28" aria-hidden="true"><text x="0" y="22" fill="#fff" font-family="Helvetica,Arial,sans-serif" font-size="22" font-weight="800">Southwest</text></svg></a>
+    <nav>
+      <a class="on" href="/">Flight</a>
+      <a href="/flights.html">Hotel</a>
+      <a href="/flights.html">Car</a>
+      <a href="/flights.html">Vacations</a>
+      <a href="/flights.html">Cruises</a>
+      <a href="/help.html">Special offers</a>
+      <a href="/help.html">Rapid Rewards</a>
+    </nav>
+    <div class="icons">
+      <a href="/help.html" title="Saved" aria-label="Saved">♥</a>
+      <a href="#" title="Account" aria-label="Account">👤</a>
+    </div>
+  </header>
+  <div class="promo-strip">
+    <span>Enter for a chance to win with Getaways by Southwest®</span>
+    <a href="/help.html">Official rules</a>
+    <span class="arrow">›</span>
+  </div>
+  <section class="hero-wrap">
+    <div class="hero-grid">
+      <form class="book-card" action="/flights.html" method="get">
+        <div class="book-tabs">
+          <a class="on" href="/">Flights</a>
+          <a href="/flights.html">Vacations</a>
+          <a href="/flights.html">Hotels</a>
+          <a href="/flights.html">Cars</a>
+          <a href="/flights.html">Cruises</a>
+        </div>
+        <div class="book-body">
+          <div class="row2">
+            <div class="field"><label for="trip">Trip type</label>
+              <select id="trip" name="trip"><option>Round-trip</option><option>One-way</option></select>
+            </div>
+            <div class="field"><label for="recent">Recent searches</label>
+              <select id="recent" name="recent"><option>Select search</option><option>SBA → DEN</option></select>
+            </div>
+          </div>
+          <div class="airports">
+            <div class="field"><label for="depart">Depart</label><input id="depart" name="from" value="SBA" /></div>
+            <button class="swap" type="button" aria-label="Swap cities">⇄</button>
+            <div class="field"><label for="arrive">Arrive</label><input id="arrive" name="to" value="DEN" /></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="dd">Depart date</label><input id="dd" name="depart" type="date" value="2026-10-28" /></div>
+            <div class="field"><label for="rd">Return date</label><input id="rd" name="return" type="date" value="2026-10-31" /></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="pax">Passengers</label>
+              <select id="pax" name="pax"><option>1</option><option>2</option><option>3</option></select>
+            </div>
+            <div class="field"><label for="promo">Promo code</label><input id="promo" name="promo" placeholder="" /></div>
+          </div>
+          <div class="pay-row">
+            <label><input type="radio" name="pay" value="cash" checked /> $</label>
+            <label><input type="radio" name="pay" value="points" /> Points</label>
+            <label><input type="radio" name="pay" value="both" /> $ + Points</label>
+          </div>
+          <label class="check-row"><input type="checkbox" name="calendar" /> Search with low fare calendar</label>
+          <button class="btn-yellow" type="submit">Search flights</button>
+        </div>
+      </form>
+      <div class="hero-promo">
+        <div class="badge">Book your winter travel now</div>
+        <h1>Wanna land a low fare?</h1>
+        <div class="fare">$59</div>
+        <a class="btn-yellow inline" href="/flights.html">Book now</a>
+        <p class="legal">Fares are one-way based on required roundtrip purchase. Seats are limited and may not be available on all flights or days. Demo pricing for UCSB × Unwrap testing only.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-foot">© 2026 Southwest demo · UCSB × Unwrap · Not affiliated with Southwest Airlines Co.</footer>
+  <nav class="dock" aria-label="Trip tools">
+    <a href="/check-in.html">✈ Check in</a>
+    <a href="/flights.html">◎ Flight status</a>
+    <a href="/manage.html">☰ Manage trip</a>
+  </nav>
+</body>
+</html>

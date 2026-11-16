@@ -64,7 +64,7 @@ The project will progress through five areas:
 
 ## Run the demos
 
-Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all five demo sites:
+Docker Desktop (or Docker Engine with Compose v2) is enough. One command starts PostgreSQL, the API, the embed, and all four demo sites:
 
 ```bash
 git clone https://github.com/Helenlongjiao/CS189-Unwrap.git
@@ -77,13 +77,12 @@ Leave that terminal open. Then open any of these. Each page loads the embed from
 
 | Site | URL |
 | --- | --- |
-| Skyline Air | http://localhost:5173 |
-| Northline | http://localhost:5174 |
-| Harbor Credit Union | http://localhost:5175 |
-| Westbridge University | http://localhost:5176 |
-| Linden Clinic | http://localhost:5177 |
+| Southwest | http://localhost:5173 |
+| Amazon | http://localhost:5174 |
+| Expedia | http://localhost:5175 |
+| Lululemon | http://localhost:5176 |
 
-Ports 4000 and 5173–5177 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
+These are original lookalike demos for testing (not affiliated with those brands). Ports 4000 and 5173–5176 need to be free. Stop with Ctrl+C. `docker compose down` removes the containers. The database volume stays until `docker compose down -v`.
 
 The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
 
@@ -95,7 +94,7 @@ AI-written surveys are optional. Copy `.env.example` to `.env` in this folder an
 | --- | --- |
 | `sdk/` | The embeddable SDK (TypeScript, built with Rollup into one zero-dependency file) |
 | `server/` | Ingestion API (Node.js/Express) and PostgreSQL migrations |
-| `test-site/` | Five demo sites the embed is installed on |
+| `test-site/` | Four deep demo sites the embed is installed on |
 | `docker-compose.yml` | One-command run of the database, API, and demo sites |
 
 ## Getting Started
@@ -215,3 +214,18 @@ Included variants: disabled controls (for a rage click or dead click on a greyed
 | Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
 
 To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.
+
+### What We Mask
+
+Before anything leaves the browser, the SDK replaces personal info in every text value it sends (events, page info, survey answers, guide questions) with a placeholder:
+
+| Found | Sent as |
+| --- | --- |
+| Email address | `[email]` |
+| Phone number (US formats, or `+` and a country code) | `[phone]` |
+| IPv4 address | `[ip]` |
+| Card number of 13–19 digits that passes the Luhn check | `[card]` |
+| Any other run of 8 or more digits, such as an account number | `[account]` |
+| Name in a URL path, right after a folder about people (`/users/`, `/profile/`, `/members/`, `/patients/`, `/students/`, ...) | `/users/[name]` |
+
+Prices, dates, times and short numbers are left alone. Names elsewhere (survey answers, button text) are not masked yet. Ids the SDK makes up and the browser's user agent are sent unchanged. Crash reports (`stack`) also drop the `?query` and `#hash` from each URL in them. Masking errs on the side of hiding too much, so expect the odd false positive, such as a long order number shown as `[account]`.
