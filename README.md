@@ -133,7 +133,7 @@ Full Vitest output is placed in `sdk/test/benchmark-last.log`.
 On competent-navigation stories:
 
 - **False positive:** any `competent_navigation` story where lost reaches `nudge` or `full` (`FP rate` in the log).
-  - **Eligible prompt false positive:** same story, and the lost trigger was **`eligible`** under the prompt budget (session cap, cooldown, same-type cooldown). Logged as `FP rate (eligible prompt)` — when a real user would have seen the nudge or guide, not only a recorded trigger.
+  - **Eligible prompt false positive:** same story, and the lost trigger was `eligible` under the prompt budget (session cap, cooldown, same-type cooldown). Logged as `FP rate (eligible prompt)` — when a real user would have seen the nudge or guide, not only a recorded trigger.
   - **Weighted false positive:** average interruption severity on competent stories: `none = 0`, `nudge = 0.5`, `full = 1.0`, averaged over the corpus (`FP rate (weighted)`). A full guide counts more than a toast-only nudge when comparing runs.
 
 On stuck stories:
@@ -146,8 +146,10 @@ On stuck stories:
 **Corpus files:**
 
 - `sdk/test/scenarios.ts` — friction quiet vs prompt cases
-- `sdk/test/lostScenarios.ts` — lost competent vs stuck trails (add rows to grow the benchmark)
+- `sdk/test/lostScenarios.ts` — lost competent vs stuck trails
 - `sdk/test/lostBenchmark.ts` — `LOST_BASELINE` (CI ceilings for FP, eligible prompt FP, weighted FP, and overshoot rates) and `LOST_BASELINE_SNAPSHOT` (last measured run)
+
+A description of each test can be found in [benchmark-tests.md](benchmark-tests.md).
 
 After changing lost weights or adding competent stories, re-run the benchmark and, if rates improved, tighten `LOST_BASELINE` (same pattern as friction baselines). The summary table in `benchmark-last.log` reports all three competent-story FP rates side by side.
 

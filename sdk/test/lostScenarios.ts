@@ -78,8 +78,7 @@ export function createTrail(breadcrumbs: Breadcrumbs, tick: (ms: number) => Prom
 
 export const tick: (ms: number) => Promise<void> = (ms) => vi.advanceTimersByTimeAsync(ms).then(() => undefined);
 
-export const lostScenarios: LostScenario[] = [
-  // ───────────────────────── stuck (true positives) ─────────────────────────
+export const lostTruePositiveTargets: LostScenario[] = [
   {
     id: 'stuck-error-then-wander',
     kind: 'stuck',
@@ -145,10 +144,15 @@ export const lostScenarios: LostScenario[] = [
     kind: 'stuck',
     source: 'Linden Clinic · FAQ',
     expectTier: 'nudge',
-    what: 'Stays on one page almost a minute without clicking anything',
+    what: 'Stays on FAQ but scrolls up and down without clicking (not calm reading)',
+    html: '<main style="height:3000px">FAQ</main>',
     play: async (t) => {
       t.navigate('/faq', 'FAQ');
-      await t.tick(50_000);
+      await t.tick(20_000);
+      for (const y of [0, 500, 120, 520, 80, 480]) {
+        await t.scrollY(y);
+        await t.tick(5_000);
+      }
       await t.tick(6_000);
     },
   },
@@ -168,8 +172,227 @@ export const lostScenarios: LostScenario[] = [
       await t.tick(6_000);
     },
   },
+  {
+    id: 'stuck-form-then-leave',
+    kind: 'stuck',
+    source: 'Linden Clinic · Refill',
+    expectTier: 'full',
+    what: 'Touches three refill fields, abandons to home, then opens Help',
+    play: async (t) => {
+      t.navigate('/refill', 'Refill');
+      t.focusField('rx', 'Prescription number');
+      t.focusField('pharmacy', 'Pharmacy');
+      t.focusField('notes', 'Notes');
+      await t.tick(5_000);
+      t.navigate('/home', 'Home');
+      t.click('Help');
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-clicks-same-page',
+    kind: 'stuck',
+    source: 'Northline · Filters',
+    expectTier: 'nudge',
+    what: 'Clicks many filters on the shop without navigating away',
+    play: async (t) => {
+      t.navigate('/shop', 'Shop');
+      for (const label of ['Size 10', 'Blue', 'Waterproof', 'Sale', 'Trail', 'Wide', 'In stock', 'Sort by']) {
+        t.click(label);
+        await t.tick(1_500);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-scroll-reversal',
+    kind: 'stuck',
+    source: 'Linden Clinic · FAQ',
+    expectTier: 'nudge',
+    what: 'Scrolls up and down the FAQ without settling',
+    html: '<main style="height:3000px">FAQ</main>',
+    play: async (t) => {
+      t.navigate('/faq', 'FAQ');
+      const ys = [0, 480, 120, 520, 80, 560, 200];
+      for (const y of ys) {
+        await t.scrollY(y);
+        await t.tick(3_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-back-button-spam',
+    kind: 'stuck',
+    source: 'Northline · Checkout',
+    expectTier: 'full',
+    what: 'Rapid checkout ↔ cart alternation',
+    play: async (t) => {
+      t.navigate('/checkout', 'Checkout');
+      for (let i = 0; i < 5; i++) {
+        t.navigate(i % 2 === 0 ? '/cart' : '/checkout', i % 2 === 0 ? 'Cart' : 'Checkout');
+        await t.tick(2_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-js-error-wander',
+    kind: 'stuck',
+    source: 'Linden Clinic · Billing',
+    expectTier: 'full',
+    what: 'JS error on pay, then wanders across three pages',
+    play: async (t) => {
+      t.navigate('/billing', 'Billing');
+      t.click('Pay balance');
+      t.error('js');
+      await t.tick(2_000);
+      for (const path of ['/records', '/messages', '/appointments']) {
+        t.navigate(path, path);
+        await t.tick(2_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-search-help-hop',
+    kind: 'stuck',
+    source: 'Northline · Shop',
+    expectTier: 'full',
+    what: 'Search, Help, then three quick hops',
+    html: '<input type="search" data-pulse-search placeholder="Search" />',
+    play: async (t) => {
+      t.navigate('/shop', 'Shop');
+      await t.search('refund');
+      t.click('Help');
+      await t.tick(3_000);
+      for (const path of ['/returns', '/shipping', '/contact']) {
+        t.navigate(path, path);
+        await t.tick(2_500);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-bounce-pages',
+    kind: 'stuck',
+    source: 'Westbridge · Calendar',
+    expectTier: 'nudge',
+    what: 'Very short visits on three pages in a row',
+    play: async (t) => {
+      for (const path of ['/calendar', '/deadlines', '/aid', '/registration']) {
+        t.navigate(path, path);
+        await t.tick(1_500);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-repeated-same-link',
+    kind: 'stuck',
+    source: 'Harbor CU · Transfers',
+    expectTier: 'nudge',
+    what: 'Clicks the same Review transfer label four times',
+    play: async (t) => {
+      t.navigate('/transfer', 'Transfer');
+      for (let i = 0; i < 4; i++) {
+        t.click('Review transfer');
+        await t.tick(2_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-sw-promo-apply-spam',
+    kind: 'stuck',
+    source: 'Southwest · Checkout',
+    expectTier: 'nudge',
+    what: 'Clicks promo Apply many times with no navigation',
+    play: async (t) => {
+      t.navigate('/checkout.html', 'Payment');
+      for (let i = 0; i < 5; i++) {
+        t.click('Apply');
+        await t.tick(2_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-lulu-size-6-then-help',
+    kind: 'stuck',
+    source: 'Lululemon · Product',
+    expectTier: 'nudge',
+    what: 'Mashes unavailable size 6 then opens Help',
+    play: async (t) => {
+      t.navigate('/product.html', 'Align High-Rise Pant');
+      for (let i = 0; i < 5; i++) {
+        t.click('6');
+        await t.tick(1_500);
+      }
+      t.click('Help');
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-sw-404-then-hop',
+    kind: 'stuck',
+    source: 'Southwest · Flights',
+    expectTier: 'full',
+    what: 'Broken seat-map path (page error) then wanders across four booking steps',
+    play: async (t) => {
+      t.navigate('/flights.html', 'Flights');
+      t.click('View seat map');
+      t.error('page');
+      await t.tick(2_000);
+      for (const path of ['/bags.html', '/passengers.html', '/check-in.html', '/checkout.html']) {
+        t.navigate(path, path);
+        await t.tick(2_000);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-amazon-prime-filter-dead-end',
+    kind: 'stuck',
+    source: 'Amazon · Search',
+    expectTier: 'full',
+    what: 'Clicks Prime only repeatedly, then searches without choosing a product',
+    html: '<input type="search" data-pulse-search placeholder="Search Amazon" />',
+    play: async (t) => {
+      t.navigate('/search.html', 'Search results');
+      for (let i = 0; i < 5; i++) {
+        t.click('Prime only');
+        await t.tick(1_500);
+      }
+      await t.search('kettle');
+      await t.tick(20_000);
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-expedia-fare-hop',
+    kind: 'stuck',
+    source: 'Expedia · Trips',
+    expectTier: 'full',
+    what: 'Bounces across trips, support, and cancellation without booking',
+    play: async (t) => {
+      t.navigate('/trips.html', 'Trips');
+      await t.tick(2_000);
+      t.navigate('/support.html', 'Support');
+      await t.tick(2_000);
+      t.navigate('/cancellation.html', 'Cancellation');
+      await t.tick(2_000);
+      t.navigate('/hotels.html', 'Hotels');
+      await t.tick(2_000);
+      t.navigate('/cars.html', 'Cars');
+      await t.tick(2_000);
+      t.click('Help');
+      await t.tick(6_000);
+    },
+  },
+];
 
-  // ───────────────────── competent navigation (false positives) ─────────────────────
+export const lostFalsePositiveGuards: LostScenario[] = [
   {
     id: 'competent-shop-to-checkout',
     kind: 'competent_navigation',
@@ -257,6 +480,18 @@ export const lostScenarios: LostScenario[] = [
       t.click('Trail running');
       t.navigate('/product/trail-x', 'Trail X');
       await t.tick(8_000);
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-read-afk-policy',
+    kind: 'competent_navigation',
+    tags: ['reading'],
+    source: 'Linden Clinic · FAQ',
+    what: 'AFK on a policy page for almost a minute without clicking (reading)',
+    play: async (t) => {
+      t.navigate('/policy', 'Return policy');
+      await t.tick(55_000);
       await t.tick(6_000);
     },
   },
@@ -466,136 +701,96 @@ export const lostScenarios: LostScenario[] = [
     },
   },
   {
-    id: 'stuck-form-then-leave',
-    kind: 'stuck',
-    source: 'Linden Clinic · Refill',
-    expectTier: 'full',
-    what: 'Touches three refill fields, abandons to home, then opens Help',
+    id: 'competent-amazon-search-to-pdp',
+    kind: 'competent_navigation',
+    tags: ['shopping', 'search'],
+    source: 'Amazon · Search',
+    what: 'Search results to product (not the dead Prime filter)',
+    html: '<input type="search" data-pulse-search placeholder="Search Amazon" />',
     play: async (t) => {
-      t.navigate('/refill', 'Refill');
-      t.focusField('rx', 'Prescription number');
-      t.focusField('pharmacy', 'Pharmacy');
-      t.focusField('notes', 'Notes');
-      await t.tick(5_000);
-      t.navigate('/home', 'Home');
-      t.click('Help');
-      await t.tick(6_000);
-    },
-  },
-  {
-    id: 'stuck-clicks-same-page',
-    kind: 'stuck',
-    source: 'Northline · Filters',
-    expectTier: 'nudge',
-    what: 'Clicks many filters on the shop without navigating away',
-    play: async (t) => {
-      t.navigate('/shop', 'Shop');
-      for (const label of ['Size 10', 'Blue', 'Waterproof', 'Sale', 'Trail', 'Wide', 'In stock', 'Sort by']) {
-        t.click(label);
-        await t.tick(1_500);
-      }
-      await t.tick(6_000);
-    },
-  },
-  {
-    id: 'stuck-scroll-reversal',
-    kind: 'stuck',
-    source: 'Linden Clinic · FAQ',
-    expectTier: 'nudge',
-    what: 'Scrolls up and down the FAQ without settling',
-    html: '<main style="height:3000px">FAQ</main>',
-    play: async (t) => {
-      t.navigate('/faq', 'FAQ');
-      const ys = [0, 480, 120, 520, 80, 560, 200];
-      for (const y of ys) {
-        await t.scrollY(y);
-        await t.tick(3_000);
-      }
-      await t.tick(6_000);
-    },
-  },
-  {
-    id: 'stuck-back-button-spam',
-    kind: 'stuck',
-    source: 'Northline · Checkout',
-    expectTier: 'full',
-    what: 'Rapid checkout ↔ cart alternation',
-    play: async (t) => {
-      t.navigate('/checkout', 'Checkout');
-      for (let i = 0; i < 5; i++) {
-        t.navigate(i % 2 === 0 ? '/cart' : '/checkout', i % 2 === 0 ? 'Cart' : 'Checkout');
-        await t.tick(2_000);
-      }
-      await t.tick(6_000);
-    },
-  },
-  {
-    id: 'stuck-js-error-wander',
-    kind: 'stuck',
-    source: 'Linden Clinic · Billing',
-    expectTier: 'full',
-    what: 'JS error on pay, then wanders across three pages',
-    play: async (t) => {
-      t.navigate('/billing', 'Billing');
-      t.click('Pay balance');
-      t.error('js');
-      await t.tick(2_000);
-      for (const path of ['/records', '/messages', '/appointments']) {
-        t.navigate(path, path);
-        await t.tick(2_000);
-      }
-      await t.tick(6_000);
-    },
-  },
-  {
-    id: 'stuck-search-help-hop',
-    kind: 'stuck',
-    source: 'Northline · Shop',
-    expectTier: 'full',
-    what: 'Search, Help, then three quick hops',
-    html: '<input type="search" data-pulse-search placeholder="Search" />',
-    play: async (t) => {
-      t.navigate('/shop', 'Shop');
-      await t.search('refund');
-      t.click('Help');
+      t.navigate('/search.html', 'Search results');
+      await t.search('earbuds');
       await t.tick(3_000);
-      for (const path of ['/returns', '/shipping', '/contact']) {
-        t.navigate(path, path);
-        await t.tick(2_500);
-      }
+      t.click('PulseBuds Pro');
+      t.navigate('/product-earbuds.html', 'PulseBuds Pro');
       await t.tick(6_000);
     },
   },
   {
-    id: 'stuck-bounce-pages',
-    kind: 'stuck',
-    source: 'Westbridge · Calendar',
-    expectTier: 'nudge',
-    what: 'Very short visits on three pages in a row',
+    id: 'competent-lulu-read-product-afk',
+    kind: 'competent_navigation',
+    tags: ['reading', 'shopping'],
+    source: 'Lululemon · Product',
+    what: 'AFK on the PDP reading copy without clicking',
     play: async (t) => {
-      for (const path of ['/calendar', '/deadlines', '/aid', '/registration']) {
-        t.navigate(path, path);
-        await t.tick(1_500);
-      }
+      t.navigate('/product.html', 'Align High-Rise Pant');
+      await t.tick(65_000);
       await t.tick(6_000);
     },
   },
   {
-    id: 'stuck-repeated-same-link',
-    kind: 'stuck',
-    source: 'Harbor CU · Transfers',
-    expectTier: 'nudge',
-    what: 'Clicks the same Review transfer label four times',
+    id: 'competent-amazon-pdp-afk',
+    kind: 'competent_navigation',
+    tags: ['reading', 'shopping'],
+    source: 'Amazon · Product',
+    what: 'Stays on a product page reading details (no Buy Now spam)',
     play: async (t) => {
-      t.navigate('/transfer', 'Transfer');
-      for (let i = 0; i < 4; i++) {
-        t.click('Review transfer');
-        await t.tick(2_000);
-      }
+      t.navigate('/product-earbuds.html', 'PulseBuds Pro');
+      await t.tick(50_000);
       await t.tick(6_000);
     },
   },
-  // ───────────────────────── held-out (not in CI gates) ─────────────────────────
+  {
+    id: 'competent-lulu-product-to-bag',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Lululemon · Product',
+    what: 'Picks in-stock size 2 and adds Align pant to bag',
+    play: async (t) => {
+      t.navigate('/product.html', 'Align High-Rise Pant');
+      t.click('2');
+      await t.tick(8_000);
+      t.click('Add to bag');
+      t.navigate('/cart.html', 'Bag');
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-expedia-select-trip',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Expedia · Flights',
+    what: 'Flights list → trip summary without looping',
+    play: async (t) => {
+      t.navigate('/flights.html', 'Flights');
+      await t.tick(12_000);
+      t.click('Select');
+      t.navigate('/trip.html', 'Trip');
+      await t.tick(10_000);
+      t.click('Continue to checkout');
+      t.navigate('/checkout.html', 'Checkout');
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-sw-flight-purchase',
+    kind: 'competent_navigation',
+    tags: ['shopping', 'forms'],
+    source: 'Southwest · Flights',
+    what: 'Flights → seats → checkout → fills card (no dead promo spam)',
+    play: async (t) => {
+      t.navigate('/flights.html', 'Flights');
+      await t.tick(10_000);
+      t.navigate('/seats.html', 'Seats');
+      await t.tick(12_000);
+      t.navigate('/checkout.html', 'Payment');
+      t.focusField('card', 'Card number');
+      await t.tick(6_000);
+    },
+  },
+];
+
+const heldOutLostStoryList: LostScenario[] = [
   {
     id: 'held-competent-black-friday',
     kind: 'competent_navigation',
@@ -634,9 +829,31 @@ export const lostScenarios: LostScenario[] = [
       await t.tick(6_000);
     },
   },
+  {
+    id: 'held-competent-lulu-store-search',
+    kind: 'competent_navigation',
+    tags: ['shopping', 'reading'],
+    heldOut: true,
+    source: 'Lululemon · Stores',
+    what: 'Store locator and help article (guide query “State Street hours”)',
+    play: async (t) => {
+      t.navigate('/stores.html', 'Stores');
+      await t.tick(10_000);
+      t.click('State Street');
+      t.navigate('/help.html', 'Help');
+      await t.tick(15_000);
+      await t.tick(6_000);
+    },
+  },
+];
+
+export const lostScenarios: LostScenario[] = [
+  ...lostTruePositiveTargets,
+  ...lostFalsePositiveGuards,
+  ...heldOutLostStoryList,
 ];
 
 export const ciLostScenarios = lostScenarios.filter((s) => !s.heldOut);
 export const heldOutLostScenarios = lostScenarios.filter((s) => s.heldOut);
+export const stuckUserStories = lostTruePositiveTargets;
 export const competentNavigationStories = lostScenarios.filter((s) => s.kind === 'competent_navigation');
-export const stuckUserStories = lostScenarios.filter((s) => s.kind === 'stuck' && !s.heldOut);

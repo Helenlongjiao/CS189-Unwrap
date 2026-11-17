@@ -18,9 +18,9 @@ export const FRICTION_DETECTORS: Record<ScenarioDetector, Detector> = {
  * (fixed thresholds only). Re-measure by checking out the commit before the scoring change.
  */
 export const FRICTION_BASELINE = {
-  rage_click: { truePositive: 7 / 7, falsePositive: 8 / 9 },
-  dead_click: { truePositive: 5 / 5, falsePositive: 6 / 8 },
-  error: { truePositive: 5 / 5, falsePositive: 7 / 9 },
+  rage_click: { truePositive: 6 / 6, falsePositive: 8 / 9 },
+  dead_click: { truePositive: 5 / 5, falsePositive: 6 / 9 },
+  error: { truePositive: 5 / 5, falsePositive: 8 / 10 },
 } as const;
 
 export interface FrictionReplayOutcome {
