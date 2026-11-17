@@ -12,6 +12,18 @@ export function isExplicitControl(el: Element): boolean {
   return el.matches(EXPLICIT_CONTROL);
 }
 
+/**
+ * The page styled this element with a pointer cursor, which tells the user "you can click this"
+ * even when it is a plain div or chip rather than a button.
+ */
+export function looksClickable(el: Element): boolean {
+  try {
+    return getComputedStyle(el).cursor === 'pointer';
+  } catch {
+    return false;
+  }
+}
+
 /** Clicking into a field only places the cursor; repeating it is not frustration. */
 export function isTextField(el: Element): boolean {
   return !!el.closest(TEXT_FIELD);
