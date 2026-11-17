@@ -6,7 +6,8 @@ import {
   restoreFrictionMocks,
   type FrictionReplayOutcome,
 } from './scenarioReplay';
-import { ciScenarios, heldOutScenarios, type Scenario } from './scenarios';
+import { independentScenarios } from './independentScenarios';
+import { ciScenarios, heldOutScenarios, regressionScenarios, type Scenario } from './scenarios';
 
 async function replayAll(list: Scenario[]): Promise<FrictionReplayOutcome[]> {
   const out: FrictionReplayOutcome[] = [];
@@ -31,8 +32,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('detector scenarios (demo-site cases)', () => {
-  for (const scenario of ciScenarios) {
+describe('detector scenarios (demo-site cases and regression guards)', () => {
+  for (const scenario of [...ciScenarios, ...regressionScenarios]) {
     it(`${scenario.detector}: ${scenario.id} should ${scenario.expect === 'prompt' ? 'prompt' : 'stay quiet'}`, async () => {
       const outcome = await replayFrictionScenario(scenario);
       expect(outcome.prompted, scenario.what).toBe(scenario.expect === 'prompt');
@@ -66,17 +67,26 @@ describe('friction benchmark (CI corpus)', () => {
   });
 });
 
-describe('held-out scenarios (written after tuning, reported only)', () => {
-  it('reports how the detectors do on pages they were not fitted to', async () => {
-    const outcomes = await replayAll(heldOutScenarios);
-    const report = measureFrictionBenchmark(outcomes);
-    const wrong = outcomes
-      .filter((o) => o.prompted !== (o.scenario.expect === 'prompt'))
-      .map((o) => `${o.scenario.id} (${o.scenario.expect === 'prompt' ? 'missed' : 'false alarm'})`);
+function report(label: string, list: Scenario[], outcomes: FrictionReplayOutcome[]) {
+  const result = measureFrictionBenchmark(outcomes);
+  const wrong = outcomes
+    .filter((o) => o.prompted !== (o.scenario.expect === 'prompt'))
+    .map((o) => `${o.scenario.id} (${o.scenario.expect === 'prompt' ? 'missed' : 'false alarm'})`);
+  console.log(`[${label}]`, list.length, 'scenarios; wrong:', wrong.join(', ') || 'none');
+  console.table(table(result));
+}
 
-    console.log('[held-out]', heldOutScenarios.length, 'scenarios; wrong:', wrong.join(', ') || 'none');
-    console.table(table(report));
-    // Reported, not gated: a held-out miss is information about the detectors, not a test failure.
+describe('held-out scenarios (reported only, never tuned against)', () => {
+  it('site-derived: written from the demo sites after tuning', async () => {
+    const outcomes = await replayAll(heldOutScenarios);
+    report('held-out, site-derived', heldOutScenarios, outcomes);
     expect(outcomes.length).toBe(heldOutScenarios.length);
+  });
+
+  it('independent: written without reading the detector code', async () => {
+    const outcomes = await replayAll(independentScenarios);
+    report('held-out, independent', independentScenarios, outcomes);
+    // Reported, not gated: a miss here is information about the detectors, not a test failure.
+    expect(outcomes.length).toBe(independentScenarios.length);
   });
 });

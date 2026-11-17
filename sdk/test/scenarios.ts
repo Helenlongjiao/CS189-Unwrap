@@ -40,6 +40,12 @@ export interface Scenario {
    * do on pages they were not fitted to.
    */
   heldOut?: boolean;
+  /**
+   * Regression scenarios were written AFTER reading the detector code, aimed at a gap found there.
+   * They guard against that gap coming back, but they are not a measurement: they are excluded from
+   * the benchmark rates and from the held-out report.
+   */
+  regression?: boolean;
   play: (api: Api) => Promise<void>;
 }
 
@@ -62,24 +68,24 @@ export const api: Api = {
   },
 };
 
-const SAME_ORIGIN = `${location.origin}/assets/app.js`;
+export const SAME_ORIGIN = `${location.origin}/assets/app.js`;
 
-function stubFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
+export function stubFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
   window.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init)) as typeof fetch;
 }
 
 /** A page whose buttons write to the clipboard. */
-function installClipboard() {
+export function installClipboard() {
   Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
   document.getElementById('copy')?.addEventListener('click', () => {
     void navigator.clipboard.writeText('ABCD-1234');
   });
 }
 
-const ok = () => new Response('{}', { status: 200 });
-const fail = (status: number) => new Response('{}', { status });
+export const ok = () => new Response('{}', { status: 200 });
+export const fail = (status: number) => new Response('{}', { status });
 
-function jsError(message: string, filename = SAME_ORIGIN) {
+export function jsError(message: string, filename = SAME_ORIGIN) {
   window.dispatchEvent(new ErrorEvent('error', { message, filename, lineno: 12 }));
 }
 
@@ -839,11 +845,11 @@ export const scenarios: Scenario[] = [
     },
   },
 
-  // ───────────── held-out: harder error cases, written before changing errors.ts ─────────────
+  // ───────────── regression: gaps found by reading errors.ts; guard against them coming back ─────────────
   {
-    id: 'held-error-enter-key-submit-500',
+    id: 'regression-error-enter-key-submit-500',
     detector: 'error',
-    heldOut: true,
+    regression: true,
     source: 'Southwest · Checkout',
     expect: 'prompt',
     what: 'Fills the form and presses Enter (no mouse click); POST /api/book returns 500',
@@ -858,9 +864,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-error-slow-post-500',
+    id: 'regression-error-slow-post-500',
     detector: 'error',
-    heldOut: true,
+    regression: true,
     source: 'Southwest · Checkout',
     expect: 'prompt',
     what: 'Clicks "Purchase"; the booking request hangs for 4 seconds, then returns 500',
@@ -878,9 +884,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-error-abort-rejection',
+    id: 'regression-error-abort-rejection',
     detector: 'error',
-    heldOut: true,
+    regression: true,
     source: 'Expedia · Flights',
     expect: 'quiet',
     what: 'Clicks a filter while a search is in flight; the older search is cancelled and rejects with AbortError',
@@ -893,9 +899,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-error-first-party-beacon-500',
+    id: 'regression-error-first-party-beacon-500',
     detector: 'error',
-    heldOut: true,
+    regression: true,
     source: 'Amazon · Product',
     expect: 'quiet',
     what: 'Clicks "Add to cart"; only the site’s own analytics beacon (/api/analytics/collect) returns 500',
@@ -908,9 +914,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-error-background-poll-500',
+    id: 'regression-error-background-poll-500',
     detector: 'error',
-    heldOut: true,
+    regression: true,
     source: 'Amazon · Home',
     expect: 'quiet',
     what: 'A notifications poll starts on its own and returns 500 one second after the user happens to click a menu',
@@ -931,11 +937,11 @@ export const scenarios: Scenario[] = [
       await poll;
     },
   },
-  // ───────────── held-out: harder rage / dead click cases, written before changing the detectors ─────────────
+  // ───────────── regression: gaps found by reading the rage / dead click code ─────────────
   {
-    id: 'held-rage-hung-request-spinner',
+    id: 'regression-rage-hung-request-spinner',
     detector: 'rage_click',
-    heldOut: true,
+    regression: true,
     source: 'Southwest · Checkout',
     expect: 'prompt',
     what: 'Hammers "Purchase" while a spinner shows and the booking request never answers',
@@ -953,9 +959,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-rage-slow-request-impatient',
+    id: 'regression-rage-slow-request-impatient',
     detector: 'rage_click',
-    heldOut: true,
+    regression: true,
     source: 'Expedia · Flights',
     expect: 'quiet',
     what: 'Taps "Search" three times while a slow (1.5 s) but working request completes',
@@ -975,9 +981,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-rage-copy-code-button',
+    id: 'regression-rage-copy-code-button',
     detector: 'rage_click',
-    heldOut: true,
+    regression: true,
     source: 'Amazon · Gift cards',
     expect: 'quiet',
     what: 'Taps "Copy code" three times; it only writes to the clipboard',
@@ -989,9 +995,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-rage-blocked-by-overlay',
+    id: 'regression-rage-blocked-by-overlay',
     detector: 'rage_click',
-    heldOut: true,
+    regression: true,
     source: 'Lululemon · Product',
     expect: 'prompt',
     what: 'Clicks "Add to bag" four times, but an invisible overlay left on the page swallows every click',
@@ -1002,9 +1008,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-dead-search-icon-focuses-input',
+    id: 'regression-dead-search-icon-focuses-input',
     detector: 'dead_click',
-    heldOut: true,
+    regression: true,
     source: 'Amazon · Home',
     expect: 'quiet',
     what: 'Clicks the search icon; the only response is the search box taking focus',
@@ -1019,9 +1025,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-dead-copy-link-clipboard',
+    id: 'regression-dead-copy-link-clipboard',
     detector: 'dead_click',
-    heldOut: true,
+    regression: true,
     source: 'Southwest · Confirmation',
     expect: 'quiet',
     what: 'Clicks "Copy confirmation link"; it only writes to the clipboard',
@@ -1033,9 +1039,9 @@ export const scenarios: Scenario[] = [
     },
   },
   {
-    id: 'held-dead-opens-new-tab',
+    id: 'regression-dead-opens-new-tab',
     detector: 'dead_click',
-    heldOut: true,
+    regression: true,
     source: 'Expedia · Flights',
     expect: 'quiet',
     what: 'Clicks "Print itinerary"; the page opens a new window and nothing in this page changes',
@@ -1053,9 +1059,11 @@ export const scenarios: Scenario[] = [
   },
 ];
 
-/** Scenarios used to tune the detectors and gate CI. */
-export const ciScenarios = scenarios.filter((s) => !s.heldOut);
-/** Scenarios written after tuning; reported separately and never gate CI. */
+/** Scenarios used to tune the detectors; their rates gate CI. */
+export const ciScenarios = scenarios.filter((s) => !s.heldOut && !s.regression);
+/** Guards for gaps already fixed. Each must pass, but they are not part of the benchmark rates. */
+export const regressionScenarios = scenarios.filter((s) => s.regression);
+/** Scenarios written after tuning from the demo sites; reported separately and never gate CI. */
 export const heldOutScenarios = scenarios.filter((s) => s.heldOut);
 
 export { ENDPOINT };
