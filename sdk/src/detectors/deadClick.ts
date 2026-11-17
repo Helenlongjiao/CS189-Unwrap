@@ -3,7 +3,7 @@ import { onNavigate } from '../navigation';
 import { Ledger, type Evidence } from '../scoring';
 import type { Detector } from './context';
 import { watchRequests } from './requests';
-import { blockedByNativeValidation, isExplicitControl } from './signals';
+import { blockedByNativeValidation, isExplicitControl, looksClickable } from './signals';
 
 /** Controls whose response is a state change the DOM doesn't reflect (checked, focus, native picker). */
 const SELF_RESPONDING = 'input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]),textarea,select,label,[contenteditable]';
@@ -38,6 +38,7 @@ export const deadClickDetector: Detector = ({ config, engine, transport, onTap }
     if (context.reason === 'disabled') add('disabled', 60);
     else add('no-response', 35);
     if (isExplicitControl(target)) add('explicit-control', 15);
+    else if (looksClickable(target)) add('styled-clickable', 15);
     if (context.reason !== 'disabled' && blockedByNativeValidation(target)) add('native-validation', -35);
 
     const result = ledger.score(now, evidence);

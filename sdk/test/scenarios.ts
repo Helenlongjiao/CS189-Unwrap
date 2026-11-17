@@ -34,6 +34,12 @@ export interface Scenario {
   what: string;
   html: string;
   prepare?: () => void;
+  /**
+   * Held-out scenarios were written after the detector weights were tuned and are never used to
+   * tune them. They are reported separately and do not gate CI, so they show how the detectors
+   * do on pages they were not fitted to.
+   */
+  heldOut?: boolean;
   play: (api: Api) => Promise<void>;
 }
 
@@ -664,6 +670,171 @@ export const scenarios: Scenario[] = [
       console.error('deprecated API used');
     },
   },
+
+  // ───────────── held-out: modeled on the Southwest / Amazon / Expedia / Lululemon sites ─────────────
+  // Written after tuning. Do not change detector weights to make these pass; report the result.
+  {
+    id: 'held-rage-southwest-promo-apply',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Hammers the promo "Apply" button inside the payment form; it has an empty handler',
+    html: `<form id="book"><input name="card" /><input name="promo" />
+      <button type="button" id="promo-apply" class="btn-ghost">Apply</button>
+      <button type="submit">Purchase</button></form>`,
+    prepare: () => document.getElementById('promo-apply')!.addEventListener('click', () => {}),
+    play: async ({ $, burst, tick }) => {
+      await burst($('#promo-apply'), 5, 100);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-rage-amazon-buy-now-disabled',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Amazon · Product',
+    expect: 'prompt',
+    what: 'Presses the disabled "Buy Now" button repeatedly',
+    html: '<button class="btn" type="button" id="buy" disabled style="width:100%">Buy Now</button>',
+    play: async ({ $, hammerDisabled, tick }) => {
+      await hammerDisabled($('#buy'), 4, 120);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-rage-lululemon-size-6',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Taps size 6, a greyed-out size button with no handler, several times',
+    html: '<div class="sizes"><button class="size" type="button">4</button><button class="size dead" type="button" id="noop-size">6</button></div>',
+    play: async ({ $, burst, tick }) => {
+      await burst($('#noop-size'), 4, 110);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-rage-lululemon-pick-size',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Lululemon · Product',
+    expect: 'quiet',
+    what: 'Flips between sizes 2, 4 and 8 while deciding; the selected size highlights each time',
+    html: `<div class="sizes"><button class="size on" type="button" data-s="2">2</button>
+      <button class="size" type="button" data-s="4">4</button><button class="size" type="button" data-s="8">8</button></div>`,
+    prepare: () => {
+      document.querySelectorAll<HTMLElement>('.size').forEach((b) =>
+        b.addEventListener('click', () => {
+          document.querySelectorAll('.size').forEach((o) => o.classList.remove('on'));
+          b.classList.add('on');
+        }),
+      );
+    },
+    play: async ({ $, click, tick }) => {
+      for (const s of ['4', '8', '4', '2']) {
+        click($(`[data-s="${s}"]`));
+        await tick(220);
+      }
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-dead-amazon-prime-filter',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Amazon · Search',
+    expect: 'prompt',
+    what: 'Clicks the "Prime only" filter chip, which has an empty handler and changes nothing',
+    // The real site styles .chip with cursor:pointer (test-site/amazon/style.css).
+    html: '<aside class="filters"><div class="chip" id="dead-filter" style="cursor:pointer">Prime only</div><div class="chip" style="cursor:pointer">Under $50</div></aside><ul id="results"><li>Earbuds</li></ul>',
+    prepare: () => document.getElementById('dead-filter')!.addEventListener('click', () => {}),
+    play: async ({ $, click, tick }) => {
+      click($('#dead-filter'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'held-dead-lululemon-size-6',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Clicks size 6 once; the button does nothing',
+    html: '<div class="sizes"><button class="size dead" type="button" id="noop-size">6</button></div>',
+    play: async ({ $, click, tick }) => {
+      click($('#noop-size'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'held-dead-amazon-filter-applies',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Amazon · Search',
+    expect: 'quiet',
+    what: 'Clicks the "Under $50" filter and the results list updates',
+    html: '<div class="chip" id="under50" style="cursor:pointer">Under $50</div><ul id="results"><li>Earbuds $79</li><li>Kettle $34</li></ul>',
+    prepare: () =>
+      document.getElementById('under50')!.addEventListener('click', () => {
+        document.querySelector('#results li')!.remove();
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#under50'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'held-error-southwest-book-500',
+    detector: 'error',
+    heldOut: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Clicks "Purchase"; POST /api/book returns 500 and the page rethrows "inventory service timeout"',
+    html: '<form id="book"><button type="submit" id="purchase">Purchase</button></form>',
+    prepare: () => stubFetch((url) => (url.includes('/api/book') ? fail(500) : ok())),
+    play: async ({ $, click, tick }) => {
+      click($('#purchase'));
+      await window.fetch('/api/book', { method: 'POST', body: '{}' });
+      jsError('inventory service timeout');
+      await tick(500);
+    },
+  },
+  {
+    id: 'held-error-expedia-chat-widget',
+    detector: 'error',
+    heldOut: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'After clicking "Search flights", a third-party chat widget script throws',
+    html: '<button id="search">Search flights</button>',
+    play: async ({ $, click, tick }) => {
+      click($('#search'));
+      await tick(300);
+      jsError('Cannot read properties of null', 'https://widget.intercom.io/widget/abc123');
+    },
+  },
+  {
+    id: 'held-error-lululemon-analytics-post',
+    detector: 'error',
+    heldOut: true,
+    source: 'Lululemon · Product',
+    expect: 'quiet',
+    what: 'Clicks "Add to bag"; only the analytics beacon POST fails',
+    html: '<button id="add">Add to bag</button>',
+    prepare: () => stubFetch((url) => (url.includes('segment.io') ? fail(500) : ok())),
+    play: async ({ $, click, tick }) => {
+      click($('#add'));
+      await window.fetch('https://api.segment.io/v1/t', { method: 'POST', body: '{}' });
+      await tick(500);
+    },
+  },
 ];
+
+/** Scenarios used to tune the detectors and gate CI. */
+export const ciScenarios = scenarios.filter((s) => !s.heldOut);
+/** Scenarios written after tuning; reported separately and never gate CI. */
+export const heldOutScenarios = scenarios.filter((s) => s.heldOut);
 
 export { ENDPOINT };
