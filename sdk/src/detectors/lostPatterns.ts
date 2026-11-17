@@ -8,6 +8,7 @@ import {
   dwellNoClick,
   focusesThenLeft,
   hasReturnCycle,
+  loopPages,
   helpClicks,
   maxVisits,
   pagesAfterError,
@@ -43,7 +44,8 @@ function strong(id: string, weight: number, test: (snapshot: LostSnapshot) => bo
   patterns.push({ id, weight: points(weight), strong: true, test });
 }
 
-const seq = (snapshot: LostSnapshot, ms: number) => collapsedPages(snapshot.pages, snapshot.now, ms);
+// Loop patterns use `loopPages`, so the cart reached by each "Add to cart" does not read as going in circles.
+const seq = (snapshot: LostSnapshot, ms: number) => collapsedPages(loopPages(snapshot), snapshot.now, ms);
 
 // Two pages traded back and forth. 3 switches is A-B-A-B.
 for (const [switches, windowMs, weight] of [
@@ -104,7 +106,7 @@ for (const [count, windowMs, weight] of [
   [5, 180_000, 22],
   [6, 300_000, 22],
 ] as const) {
-  weak(`revisit-${count}-${windowMs / 1000}s`, weight, (s) => maxVisits(s.pages, s.now, windowMs) >= count);
+  weak(`revisit-${count}-${windowMs / 1000}s`, weight, (s) => maxVisits(loopPages(s), s.now, windowMs) >= count);
 }
 
 // Back to the page they just left, quickly.
@@ -117,7 +119,7 @@ for (const [gapMs, count, windowMs, weight] of [
   [2_000, 4, 60_000, 22],
   [8_000, 4, 120_000, 18],
 ] as const) {
-  weak(`back-${count}-within-${gapMs / 1000}s-${windowMs / 1000}s`, weight, (s) => quickReturns(s.pages, s.now, gapMs, windowMs) >= count);
+  weak(`back-${count}-within-${gapMs / 1000}s-${windowMs / 1000}s`, weight, (s) => quickReturns(loopPages(s), s.now, gapMs, windowMs) >= count);
 }
 
 // Pages left almost immediately, more than once.
@@ -219,19 +221,19 @@ weak('page-404-then-3-pages-90s', 24, (s) => pagesAfterError(s, 3, 90_000, 'page
 weak('loop-and-bounce-60s', 22, (s) => alternatingSwitches(seq(s, 60_000)) >= 3 && bounces(s.pages, s.now, 8_000, 60_000) >= 2);
 weak('loop-and-search-90s', 22, (s) => alternatingSwitches(seq(s, 90_000)) >= 3 && searchesIn(s, 90_000).length >= 1);
 weak('hop4-and-scroll-60s', 20, (s) => distinctPages(s.pages, s.now, 60_000) >= 4 && scrollReversals(s, 60_000) >= 3);
-weak('revisit3-and-help-120s', 22, (s) => maxVisits(s.pages, s.now, 120_000) >= 3 && helpClicks(s, 120_000) >= 1);
-weak('revisit3-and-search-120s', 22, (s) => maxVisits(s.pages, s.now, 120_000) >= 3 && searchesIn(s, 120_000).length >= 1);
+weak('revisit3-and-help-120s', 22, (s) => maxVisits(loopPages(s), s.now, 120_000) >= 3 && helpClicks(s, 120_000) >= 1);
+weak('revisit3-and-search-120s', 22, (s) => maxVisits(loopPages(s), s.now, 120_000) >= 3 && searchesIn(s, 120_000).length >= 1);
 weak('bounce3-and-search-90s', 22, (s) => bounces(s.pages, s.now, 5_000, 90_000) >= 3 && searchesIn(s, 90_000).length >= 1);
 weak('clicks5-and-help-60s', 22, (s) => clicksWithoutNavigation(s, 60_000) >= 5 && helpClicks(s, 60_000) >= 1);
-weak('back3-and-help-90s', 22, (s) => quickReturns(s.pages, s.now, 8_000, 90_000) >= 3 && helpClicks(s, 90_000) >= 1);
-weak('back3-and-search-90s', 22, (s) => quickReturns(s.pages, s.now, 8_000, 90_000) >= 3 && searchesIn(s, 90_000).length >= 1);
+weak('back3-and-help-90s', 22, (s) => quickReturns(loopPages(s), s.now, 8_000, 90_000) >= 3 && helpClicks(s, 90_000) >= 1);
+weak('back3-and-search-90s', 22, (s) => quickReturns(loopPages(s), s.now, 8_000, 90_000) >= 3 && searchesIn(s, 90_000).length >= 1);
 weak('search-and-hop3-60s', 20, (s) => searchesIn(s, 60_000).length >= 1 && distinctPages(s.pages, s.now, 60_000) >= 3);
 weak('menu-and-bounce-60s', 20, (s) => clicksWithoutNavigation(s, 60_000) >= 4 && bounces(s.pages, s.now, 8_000, 60_000) >= 2);
 weak('focus2-and-hop3-60s', 18, (s) => focusesThenLeft(s, 2, 60_000) && distinctPages(s.pages, s.now, 60_000) >= 3);
 
 // A single strong pattern is enough to open the full guide.
 strong('error-then-4-pages-60s', 80, (s) => pagesAfterError(s, 4, 60_000));
-strong('revisit-5-120s', 75, (s) => maxVisits(s.pages, s.now, 120_000) >= 5);
+strong('revisit-5-120s', 75, (s) => maxVisits(loopPages(s), s.now, 120_000) >= 5);
 strong('search-two-distinct-no-click', 75, (s) => distinctQueries(s, 180_000) >= 2 && searchNoFollow(s, 10_000, 180_000));
 strong('ab-and-help', 80, (s) => alternatingSwitches(seq(s, 120_000)) >= 3 && helpClicks(s, 120_000) >= 1);
 strong('cycle3-and-help', 80, (s) => hasReturnCycle(seq(s, 120_000), 4) && helpClicks(s, 120_000) >= 1);
@@ -239,10 +241,10 @@ strong('search-and-ab', 75, (s) => searchesIn(s, 120_000).length >= 1 && alterna
 strong('bounce4-and-help', 75, (s) => bounces(s.pages, s.now, 8_000, 120_000) >= 4 && helpClicks(s, 120_000) >= 1);
 strong('clicks8-and-search', 70, (s) => clicksWithoutNavigation(s, 120_000) >= 8 && searchesIn(s, 120_000).length >= 1);
 strong('form3-and-help', 70, (s) => focusesThenLeft(s, 3, 90_000) && helpClicks(s, 90_000) >= 1);
-strong('revisit4-and-search', 75, (s) => maxVisits(s.pages, s.now, 180_000) >= 4 && searchesIn(s, 180_000).length >= 1);
+strong('revisit4-and-search', 75, (s) => maxVisits(loopPages(s), s.now, 180_000) >= 4 && searchesIn(s, 180_000).length >= 1);
 strong('rapid-8-pages-90s', 70, (s) => distinctPages(s.pages, s.now, 90_000) >= 8);
 strong('scroll6-and-dwell45', 70, (s) => scrollReversals(s, 90_000) >= 6 && dwellNoClick(s, 45_000));
-strong('back5-60s', 75, (s) => quickReturns(s.pages, s.now, 8_000, 60_000) >= 5);
+strong('back5-60s', 75, (s) => quickReturns(loopPages(s), s.now, 8_000, 60_000) >= 5);
 strong('hop6-and-help', 75, (s) => distinctPages(s.pages, s.now, 90_000) >= 6 && helpClicks(s, 90_000) >= 1);
 strong('dwell90-and-scroll4', 70, (s) => dwellNoClick(s, 90_000) && scrollReversals(s, 120_000) >= 4);
 

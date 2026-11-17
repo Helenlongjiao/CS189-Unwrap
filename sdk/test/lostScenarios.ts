@@ -466,6 +466,41 @@ export const lostScenarios: LostScenario[] = [
     },
   },
   {
+    id: 'competent-shop-add-to-cart',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Amazon test site · Cart',
+    what: 'Browses three departments, adding an item from each; every "Add to Cart" lands on the cart',
+    play: async (t) => {
+      t.navigate('/', 'Home');
+      await t.tick(8_000);
+      t.click('Electronics');
+      t.navigate('/electronics', 'Electronics');
+      await t.tick(8_000);
+      t.click('Arc LED Desk Lamp');
+      t.navigate('/product-lamp', 'Arc LED Desk Lamp');
+      await t.tick(10_000);
+      t.click('Add to Cart');
+      t.navigate('/cart', 'Shopping Cart');
+      await t.tick(6_000);
+      t.click('Home & Kitchen');
+      t.navigate('/home', 'Home & Kitchen');
+      await t.tick(8_000);
+      t.click('Electric Kettle');
+      t.navigate('/product-kettle', 'Electric Kettle');
+      await t.tick(10_000);
+      t.click('Add to Cart');
+      t.navigate('/cart', 'Shopping Cart');
+      await t.tick(6_000);
+      t.click('Gift Cards');
+      t.navigate('/gift-cards', 'Gift Cards');
+      await t.tick(10_000);
+      t.click('Add to Cart');
+      t.navigate('/cart', 'Shopping Cart');
+      await t.tick(6_000);
+    },
+  },
+  {
     id: 'stuck-form-then-leave',
     kind: 'stuck',
     source: 'Linden Clinic · Refill',

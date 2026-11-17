@@ -2,7 +2,7 @@ import { asElement, isInsidePulse } from '../dom';
 import { safeUrl } from '../util';
 import type { Detector } from './context';
 import { evaluateLost } from './lostPatterns';
-import { lostFamily, lostTier, snapshotFromTrail, type LostMatch, type LostScroll, type LostSearch } from './lostScore';
+import { PROGRESS_POINTS, lastProgress, lostFamily, lostTier, snapshotFromTrail, type LostMatch, type LostScroll, type LostSearch } from './lostScore';
 
 function isSearchField(el: Element): boolean {
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return false;
@@ -74,7 +74,11 @@ export const lostDetector: Detector = ({ engine, breadcrumbs }) => {
       added = true;
     }
     const matches = [...matched.values()];
-    const { score, tier } = lostTier(matches, now);
+    // A recent "Add to cart" or similar takes points off. It is recomputed from the trail each time,
+    // so it follows the latest such click across pages and is never spent on a prompt.
+    const progress = lastProgress(snapshot);
+    const damping: LostMatch[] = progress ? [{ id: 'progress', weight: PROGRESS_POINTS, strong: false, at: progress.at }] : [];
+    const { score, tier } = lostTier([...matches, ...damping], now);
     if (tier === 'none' && prompted.tier !== 'none') {
       // No longer looks lost: the episode is over and everything may prompt again.
       prompted = { tier: 'none', spent: [] };
@@ -84,7 +88,7 @@ export const lostDetector: Detector = ({ engine, breadcrumbs }) => {
     if (!added || tier === 'none') return;
     const spent = new Set(prompted.spent);
     const fresh = lostTier(
-      matches.filter((match) => !spent.has(lostFamily(match.id))),
+      [...matches.filter((match) => !spent.has(lostFamily(match.id))), ...damping],
       now,
     );
     const climbed = RANK[tier] > RANK[prompted.tier];

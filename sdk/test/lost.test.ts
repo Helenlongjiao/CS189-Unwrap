@@ -3,7 +3,7 @@ import { Breadcrumbs } from '../src/breadcrumbs';
 import { resolveConfig } from '../src/config';
 import { lostDetector } from '../src/detectors/lost';
 import { LOST_PATTERNS, evaluateLost } from '../src/detectors/lostPatterns';
-import { DECAY_MS, FULL_SCORE, NUDGE_SCORE, emptySnapshot, lostTier, type LostSnapshot } from '../src/detectors/lostScore';
+import { DECAY_MS, FULL_SCORE, NUDGE_SCORE, emptySnapshot, lastProgress, lostTier, type LostSnapshot } from '../src/detectors/lostScore';
 import type { Transport } from '../src/transport';
 import { TriggerEngine } from '../src/triggers';
 import type { Trigger } from '../src/types';
@@ -52,6 +52,28 @@ describe('lost patterns', () => {
     );
     expect(found.map((hit) => hit.id)).toContain('error-then-4-pages-60s');
     expect(lostTier(found.map((hit) => ({ ...hit, at: now })), now).tier).toBe('full');
+  });
+
+  it('does not read the cart reached by each "Add to cart" as a loop', () => {
+    const now = 1_000_000;
+    const steps = ['/product-a', '/cart', '/category', '/product-b', '/cart', '/gifts', '/cart'];
+    const pages = steps.map((path, i) => ({ at: now - 60_000 + i * 8_000, url: `http://shop.test${path}`, title: path }));
+    const clicks = pages.flatMap((page, i) =>
+      page.url.endsWith('/cart') ? [{ at: page.at, url: pages[i - 1].url, label: 'Add to Cart' }] : [],
+    );
+    const ids = evaluateLost(snap({ now, pages, clicks })).map((hit) => hit.id);
+    expect(ids.some((id) => /^(cycle|revisit|ab|back)-/.test(id))).toBe(false);
+
+    const unclicked = evaluateLost(snap({ now, pages })).map((hit) => hit.id);
+    expect(unclicked.some((id) => /^(cycle|revisit)-/.test(id))).toBe(true);
+  });
+
+  it('counts a progress click as progress only when nothing failed after it', () => {
+    const now = 1_000_000;
+    const clicks = [{ at: now - 5_000, url: 'http://shop.test/billing', label: 'Pay balance' }];
+    expect(lastProgress(snap({ now, clicks }))?.label).toBe('Pay balance');
+    expect(lastProgress(snap({ now, clicks, errors: [{ at: now - 4_000, url: 'http://shop.test/billing', kind: 'js' }] }))).toBeUndefined();
+    expect(lastProgress(snap({ now, clicks: [{ ...clicks[0], label: 'Gallery next' }] }))).toBeUndefined();
   });
 
   it('nudges when weak signals stack, then opens fully when they pass the line', () => {

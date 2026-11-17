@@ -190,6 +190,33 @@ export function pagesAfterHelp(snapshot: LostSnapshot, ms: number): number {
   return new Set(snapshot.pages.filter((page) => page.at >= last.at && snapshot.now - page.at <= ms).map((page) => pageKey(page.url))).size;
 }
 
+/** Clicks that move a task forward. Landing on the cart after "Add to cart" is progress, not a loop. */
+const PROGRESS = /\b(add(ed)? to (cart|bag|basket|trolley)|buy( it)? now|(proceed to )?check ?out|place (your )?order|book now|pay( now| balance)?)\b/i;
+/** Points the latest progress click takes off the score; they fade like any other evidence. */
+export const PROGRESS_POINTS = -30;
+
+export function isProgressLabel(label: string): boolean {
+  return PROGRESS.test(label);
+}
+
+/** The latest progress click that nothing went wrong after. A click on "Pay" followed by an error is not progress. */
+export function lastProgress(snapshot: LostSnapshot): LostClick | undefined {
+  const progress = snapshot.clicks.filter((click) => isProgressLabel(click.label));
+  const last = progress[progress.length - 1];
+  if (!last || snapshot.errors.some((error) => error.at >= last.at)) return undefined;
+  return last;
+}
+
+/** Pages minus those reached through a progress click, so returning to the cart after each "Add to cart" is not a loop. */
+export function loopPages(snapshot: LostSnapshot): LostPage[] {
+  return snapshot.pages.filter((page, i) => {
+    const since = i > 0 ? snapshot.pages[i - 1].at : -Infinity;
+    const via = snapshot.clicks.filter((click) => click.at >= since && click.at <= page.at);
+    const last = via[via.length - 1];
+    return !last || !isProgressLabel(last.label);
+  });
+}
+
 export function clicksWithoutNavigation(snapshot: LostSnapshot, ms: number): number {
   const clicks = inWindow(snapshot.clicks, snapshot.now, ms);
   const keys = new Set(inWindow(snapshot.pages, snapshot.now, ms).map((page) => pageKey(page.url)));
