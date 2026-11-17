@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPool } from './db.js';
+import { createEmbedder } from './embeddings.js';
 import './env.js';
 import { normUrl } from './guideMatch.js';
 import { migrate } from './migrate.js';
@@ -23,6 +24,13 @@ function textOf(html) {
     .replace(/&quot;/g, '"')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** The page's own part: <main> if it has one, otherwise everything but <head> and the shared header, menus and footer. */
+function ownContent(clean) {
+  const main = clean.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i);
+  if (main) return main[1];
+  return clean.replace(/<(head|header|nav|footer)\b[\s\S]*?<\/\1>/gi, ' ');
 }
 
 function collect(html, re) {
@@ -58,7 +66,23 @@ export function parseHtml(pageUrl, html) {
     .filter(Boolean)
     .slice(0, 20);
   const excerpt = textOf(clean).slice(0, 500);
-  return { url: pageUrl, title: title.slice(0, 140), headings, links, controls, excerpt };
+  // For meaning search: the title plus the page's own content (its headings are inside it).
+  // Capped so one huge page can't exceed OpenAI's per-text limit and fail the whole site's request.
+  const embedText = `${title}\n${textOf(ownContent(clean))}`.slice(0, 8000);
+  return { url: pageUrl, title: title.slice(0, 140), headings, links, controls, excerpt, embedText };
+}
+
+/** Embeds every page of a site in one request. On no key or any failure, pages are kept without embeddings. */
+export async function embedPages(pages, embedder, { log = console.warn } = {}) {
+  let vectors = [];
+  if (embedder && pages.length) {
+    try {
+      vectors = await embedder.embed(pages.map((page) => page.embedText));
+    } catch (err) {
+      log(`embeddings skipped, saving pages without them: ${err.message}`);
+    }
+  }
+  return pages.map((page, i) => ({ ...page, embedding: vectors[i] ?? null }));
 }
 
 export async function crawlOrigin(origin, { maxPages = 40, fetchImpl = fetch } = {}) {
@@ -111,16 +135,17 @@ export async function saveIndex(pool, pages) {
       continue;
     }
     await pool.query(
-      `insert into page_index (origin, url, title, headings, links, controls, excerpt, fetched_at)
-       values ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, now())
+      `insert into page_index (origin, url, title, headings, links, controls, excerpt, embedding, fetched_at)
+       values ($1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7, $8, now())
        on conflict (origin, url) do update set
          title = excluded.title,
          headings = excluded.headings,
          links = excluded.links,
          controls = excluded.controls,
          excerpt = excluded.excerpt,
+         embedding = excluded.embedding,
          fetched_at = now()`,
-      [origin, normUrl(page.url), page.title, JSON.stringify(page.headings), JSON.stringify(page.links), JSON.stringify(page.controls), page.excerpt],
+      [origin, normUrl(page.url), page.title, JSON.stringify(page.headings), JSON.stringify(page.links), JSON.stringify(page.controls), page.excerpt, page.embedding ?? null],
     );
   }
 }
@@ -133,10 +158,12 @@ if (isMain) {
     process.exit(1);
   }
   const pool = createPool();
+  // A whole site goes in one request, so allow longer than a visitor's 2-second wait.
+  const embedder = createEmbedder({ apiKey: process.env.OPENAI_API_KEY, baseUrl: process.env.OPENAI_BASE_URL || undefined, timeoutMs: 30_000 });
   try {
     await migrate(pool, { log: () => {} });
     for (const origin of origins) {
-      const pages = await crawlOrigin(origin);
+      const pages = await embedPages(await crawlOrigin(origin), embedder);
       await saveIndex(pool, pages);
       console.log(`indexed ${pages.length} pages from ${origin}`);
     }

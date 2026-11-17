@@ -6,7 +6,7 @@ import {
   type LostReplayOutcome,
 } from './lostBenchmark';
 import { replayLostScenario } from './lostReplay';
-import { ciLostScenarios, heldOutLostScenarios, lostScenarios, stuckUserStories } from './lostScenarios';
+import { ciLostScenarios, heldOutLostScenarios, lostScenarios, lostTruePositiveTargets } from './lostScenarios';
 
 async function replayAll(scenarios: typeof lostScenarios): Promise<LostReplayOutcome[]> {
   const out: LostReplayOutcome[] = [];
@@ -24,7 +24,7 @@ describe('stuck user stories (regression)', () => {
     vi.useRealTimers();
   });
 
-  for (const scenario of stuckUserStories) {
+  for (const scenario of lostTruePositiveTargets) {
     it(`${scenario.id} should reach at least tier ${scenario.expectTier}`, async () => {
       const outcome = await replayLostScenario(scenario);
       expect(isLostTruePositive(outcome), scenario.what).toBe(true);

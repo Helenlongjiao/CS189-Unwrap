@@ -1,0 +1,49 @@
+{
+  "sites": {
+    "southwest": { "dir": "test-site/southwest", "origin": "http://localhost:5173" },
+    "amazon": { "dir": "test-site/amazon", "origin": "http://localhost:5174" },
+    "expedia": { "dir": "test-site/expedia", "origin": "http://localhost:5175" },
+    "lululemon": { "dir": "test-site/lululemon", "origin": "http://localhost:5176" }
+  },
+  "questions": [
+    { "site": "southwest", "kind": "exact", "question": "check in", "expect": ["/check-in.html"] },
+    { "site": "southwest", "kind": "exact", "question": "change flight", "expect": ["/change-flight.html"] },
+    { "site": "southwest", "kind": "synonym", "question": "luggage", "expect": ["/bags.html"] },
+    { "site": "southwest", "kind": "synonym", "question": "talk to someone", "expect": ["/contact.html"] },
+    { "site": "southwest", "kind": "synonym", "question": "rebook my trip", "expect": ["/change-flight.html", "/manage.html"] },
+    { "site": "southwest", "kind": "synonym", "question": "pick a seat", "expect": ["/seats.html"] },
+    { "site": "southwest", "kind": "synonym", "question": "my reservation", "expect": ["/manage.html", "/check-in.html"] },
+    { "site": "southwest", "kind": "none", "question": "pet insurance", "expect": [] },
+    { "site": "southwest", "kind": "none", "question": "rent an apartment", "expect": [] },
+
+    { "site": "amazon", "kind": "exact", "question": "track package", "expect": ["/tracking.html"] },
+    { "site": "amazon", "kind": "exact", "question": "gift cards", "expect": ["/gift-cards.html"] },
+    { "site": "amazon", "kind": "synonym", "question": "send it back", "expect": ["/returns.html"] },
+    { "site": "amazon", "kind": "synonym", "question": "headphones", "expect": ["/product-earbuds.html"] },
+    { "site": "amazon", "kind": "synonym", "question": "purchase history", "expect": ["/orders.html"] },
+    { "site": "amazon", "kind": "synonym", "question": "where is my order", "expect": ["/tracking.html", "/orders.html"] },
+    { "site": "amazon", "kind": "synonym", "question": "contact support", "expect": ["/help.html"] },
+    { "site": "amazon", "kind": "none", "question": "flight status", "expect": [] },
+    { "site": "amazon", "kind": "none", "question": "car rental", "expect": [] },
+
+    { "site": "expedia", "kind": "exact", "question": "baggage fees", "expect": ["/baggage-fees.html"] },
+    { "site": "expedia", "kind": "exact", "question": "cancellation policy", "expect": ["/cancellation.html"] },
+    { "site": "expedia", "kind": "synonym", "question": "luggage", "expect": ["/baggage-fees.html"] },
+    { "site": "expedia", "kind": "synonym", "question": "get my money back", "expect": ["/cancellation.html"] },
+    { "site": "expedia", "kind": "synonym", "question": "rent a vehicle", "expect": ["/cars.html"] },
+    { "site": "expedia", "kind": "synonym", "question": "place to stay", "expect": ["/hotels.html", "/hotel.html", "/"] },
+    { "site": "expedia", "kind": "synonym", "question": "my bookings", "expect": ["/trips.html"] },
+    { "site": "expedia", "kind": "none", "question": "buy shoes", "expect": [] },
+    { "site": "expedia", "kind": "none", "question": "order pizza", "expect": [] },
+
+    { "site": "lululemon", "kind": "exact", "question": "size guide", "expect": ["/size-guide.html"] },
+    { "site": "lululemon", "kind": "exact", "question": "State Street hours", "expect": ["/stores.html"] },
+    { "site": "lululemon", "kind": "synonym", "question": "what size am I", "expect": ["/size-guide.html"] },
+    { "site": "lululemon", "kind": "synonym", "question": "exchange", "expect": ["/returns.html"] },
+    { "site": "lululemon", "kind": "synonym", "question": "store near me", "expect": ["/stores.html"] },
+    { "site": "lululemon", "kind": "synonym", "question": "leggings", "expect": ["/product.html", "/women.html"] },
+    { "site": "lululemon", "kind": "synonym", "question": "send back my order", "expect": ["/returns.html"] },
+    { "site": "lululemon", "kind": "none", "question": "book a flight", "expect": [] },
+    { "site": "lululemon", "kind": "none", "question": "car rental", "expect": [] }
+  ]
+}

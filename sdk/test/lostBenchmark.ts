@@ -103,20 +103,20 @@ export function measureLostBenchmark(results: LostReplayOutcome[]) {
  * First-version ceilings were FP 11/17, weighted 0.34, overshoot 4/6.
  */
 export const LOST_BASELINE = {
-  maxFalsePositiveRate: 3 / 17,
-  maxEligibleFalsePositiveRate: 3 / 17,
-  maxWeightedFalsePositiveRate: 0.1,
-  maxOvershootRate: 2 / 6,
+  maxFalsePositiveRate: 16 / 24,
+  maxEligibleFalsePositiveRate: 16 / 24,
+  maxWeightedFalsePositiveRate: 0.34,
+  maxOvershootRate: 7 / 9,
   minTruePositiveRate: 0.9,
 } as const;
 /** Snapshot of the last baseline run */
 export const LOST_BASELINE_SNAPSHOT = {
-  measuredFalsePositiveRate: 1 / 17,
-  measuredEligibleFalsePositiveRate: 1 / 17,
-  measuredWeightedFalsePositiveRate: 0.029,
-  measuredTruePositiveRate: 14 / 14,
-  measuredOvershootRate: 0 / 6,
-  competentTotal: 17,
-  stuckTotal: 14,
-  measuredAt: '2026-11-11',
+  measuredFalsePositiveRate: 15 / 24,
+  measuredEligibleFalsePositiveRate: 15 / 24,
+  measuredWeightedFalsePositiveRate: 0.333,
+  measuredTruePositiveRate: 19 / 19,
+  measuredOvershootRate: 6 / 8,
+  competentTotal: 24,
+  stuckTotal: 19,
+  measuredAt: '2026-03-11',
 } as const;

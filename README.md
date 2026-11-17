@@ -86,7 +86,12 @@ These are original lookalike demos for testing (not affiliated with those brands
 
 The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
 
-AI-written surveys are optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. Without that key, surveys use the built-in templates. The lost-user guide does not call OpenAI.
+An OpenAI key is optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. The key turns on two extras:
+
+- **AI-written surveys.** Without the key, surveys use the built-in templates.
+- **Meaning search in the lost-user guide.** When the demo sites are crawled, each page's own content (not the shared menu) is turned into an embedding with `text-embedding-3-small`. The visitor's question gets one too, so "luggage" can find a page titled "Bags". The guide merges these results with its keyword search. Without the key, or if OpenAI fails or takes more than 2 seconds, the guide uses keyword search alone. With the key, the visitor's guide question is sent to OpenAI. On the demo sites, this raises right-page-first answers from 57% to 86% ([quiz results](docs/guide-eval-results.md)).
+
+For a regional (data-residency) key, also set `OPENAI_BASE_URL`, e.g. `https://us.api.openai.com/v1`.
 
 ## Repository Layout
 
@@ -108,7 +113,10 @@ npm run db:migrate          # creates tables and seeds the default survey templa
 npm run dev                 # builds the SDK and starts the API on http://localhost:4000
 npm test                    # SDK unit tests + API integration tests (uses a pulse_test database)
 npm run test:benchmark      # Detector false-positive / true-positive benchmark suites (SDK only)
+npm run eval:guide -w server  # Lost-user guide quiz: 36 questions on the demo sites, keyword vs. meaning search
 ```
+
+The guide quiz (`server/scripts/guide-questions.json`) reads the demo sites straight from `test-site/`, so it needs no servers or database. With `OPENAI_API_KEY` in `server/.env` it also scores meaning search at several similarity cutoffs. The cutoff the guide uses is `MIN_SIMILARITY` in `server/src/guideMatch.js`. The latest results, with and without hybrid search and for every question, are in [docs/guide-eval-results.md](docs/guide-eval-results.md).
 
 ### Detection benchmarks
 
@@ -133,7 +141,7 @@ Full Vitest output is placed in `sdk/test/benchmark-last.log`.
 On competent-navigation stories:
 
 - **False positive:** any `competent_navigation` story where lost reaches `nudge` or `full` (`FP rate` in the log).
-  - **Eligible prompt false positive:** same story, and the lost trigger was **`eligible`** under the prompt budget (session cap, cooldown, same-type cooldown). Logged as `FP rate (eligible prompt)` — when a real user would have seen the nudge or guide, not only a recorded trigger.
+  - **Eligible prompt false positive:** same story, and the lost trigger was `eligible` under the prompt budget (session cap, cooldown, same-type cooldown). Logged as `FP rate (eligible prompt)` — when a real user would have seen the nudge or guide, not only a recorded trigger.
   - **Weighted false positive:** average interruption severity on competent stories: `none = 0`, `nudge = 0.5`, `full = 1.0`, averaged over the corpus (`FP rate (weighted)`). A full guide counts more than a toast-only nudge when comparing runs.
 
 On stuck stories:
@@ -146,8 +154,10 @@ On stuck stories:
 **Corpus files:**
 
 - `sdk/test/scenarios.ts` — friction quiet vs prompt cases
-- `sdk/test/lostScenarios.ts` — lost competent vs stuck trails (add rows to grow the benchmark)
+- `sdk/test/lostScenarios.ts` — lost competent vs stuck trails
 - `sdk/test/lostBenchmark.ts` — `LOST_BASELINE` (CI ceilings for FP, eligible prompt FP, weighted FP, and overshoot rates) and `LOST_BASELINE_SNAPSHOT` (last measured run)
+
+A description of each test can be found in [benchmark-tests.md](benchmark-tests.md).
 
 After changing lost weights or adding competent stories, re-run the benchmark and, if rates improved, tighten `LOST_BASELINE` (same pattern as friction baselines). The summary table in `benchmark-last.log` reports all three competent-story FP rates side by side.
 
@@ -208,9 +218,17 @@ Included variants: disabled controls (for a rage click or dead click on a greyed
 
 | Trigger | Rule |
 | --- | --- |
-| Rage click | 3+ clicks within 700 ms, within 30 px of each other |
-| Dead click | Clicking something interactive produces no DOM change or navigation within 1 s, or the control is disabled |
-| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click |
+| Rage click | 3+ clicks within 700 ms, within 30 px of each other, **plus** evidence the page is broken (see below). Always prompts if a request failed during the burst or the control is disabled |
+| Dead click | Clicking something interactive produces no DOM change, submit, scroll, navigation or network request within 1 s, or the control is disabled. Scored; needs 45 points |
+| Error | Any captured error is stored; it may prompt only if it happens within 3 s of a click and scores 50 points |
+
+Rage clicks are a page-break signal, separate from the lostness score. A burst is scored from several layers of evidence, and prompts at 50 points (`scoreThreshold.rageClick`) unless the fixed rule above applies:
+
+| Adds points | Takes points away |
+| --- | --- |
+| More clicks (5+ is strong), disabled control, page did not respond, no request went out, a request failed, frantic mouse movement | Page responded (a number went up, a menu opened), a request succeeded (the page is working, maybe slow), plain text, a text field |
+
+Every event below its threshold is still recorded with its `score` and `signals`, so thresholds can be tuned from real data. Open the console with `data-debug="true"` to see them.
 | Form abandonment | User typed in a form, then went idle for 30 s without submitting (leaving mid-form is recorded, never prompted) |
 
 To limit false positives, prompts are budgeted per tab session: at most 3 per session, at least 60 s apart, and at least 5 minutes apart for the same trigger type. All thresholds are configurable through `Pulse.init({...})`. Only field labels and names are collected, never typed values, and URLs are stored without query strings.

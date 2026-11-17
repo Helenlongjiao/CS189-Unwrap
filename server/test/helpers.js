@@ -5,12 +5,12 @@ import { migrate } from '../src/migrate.js';
 
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgres://localhost:5432/pulse_test';
 
-/** Fresh schema + running app on a random port. */
-export async function startTestServer() {
+/** Fresh schema + running app on a random port. Pass a fake `embedder` to test guide meaning search. */
+export async function startTestServer({ embedder = null } = {}) {
   const pool = createPool(TEST_DATABASE_URL);
   await pool.query('drop schema public cascade; create schema public;');
   await migrate(pool, { log: () => {} });
-  const server = createApp({ pool }).listen(0);
+  const server = createApp({ pool, embedder }).listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
   const base = `http://localhost:${server.address().port}`;
   return {
