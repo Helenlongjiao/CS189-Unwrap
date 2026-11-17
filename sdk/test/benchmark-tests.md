@@ -121,6 +121,7 @@ See `scenarios.ts` and `lostScenarios.ts` for definitions. **`what`** below matc
 
 | ID | Website | What |
 |---|---|---|
+| `competent-amazon-earbuds-home-lamp` | Amazon | Online Shopping → PulseBuds → home → Arc desk lamp (compare two products) |
 | `competent-amazon-pdp-afk` | Amazon | Stays on a product page reading details (no Buy Now spam) |
 | `competent-amazon-search-to-pdp` | Amazon | Search results to product (not the dead Prime filter) |
 | `competent-expedia-select-trip` | Expedia | Flights list → trip summary without looping |

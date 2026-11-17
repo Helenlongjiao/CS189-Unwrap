@@ -774,6 +774,24 @@ export const lostFalsePositiveGuards: LostScenario[] = [
     },
   },
   {
+    id: 'competent-amazon-earbuds-home-lamp',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Amazon · Home',
+    what: 'Online Shopping → PulseBuds → home → Arc desk lamp (compare two products)',
+    play: async (t) => {
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(10_000);
+      t.navigate('/product-earbuds.html', 'Amazon.com: PulseBuds Pro Wireless Earbuds');
+      await t.tick(14_000);
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(10_000);
+      t.navigate('/product-lamp.html', 'Amazon.com: Arc LED Desk Lamp');
+      await t.tick(12_000);
+      await t.tick(6_000);
+    },
+  },
+  {
     id: 'competent-lulu-product-to-bag',
     kind: 'competent_navigation',
     tags: ['shopping'],
