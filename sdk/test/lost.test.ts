@@ -54,9 +54,9 @@ describe('lost patterns', () => {
     expect(lostTier(found.map((hit) => ({ ...hit, at: now })), now).tier).toBe('full');
   });
 
-  it('does not read the cart reached by each "Add to cart" as a loop', () => {
+  it('does not read shopping on after each "Add to cart" as a loop', () => {
     const now = 1_000_000;
-    const steps = ['/product-a', '/cart', '/category', '/product-b', '/cart', '/gifts', '/cart'];
+    const steps = ['/category', '/product-a', '/cart', '/category', '/product-a', '/cart', '/category', '/product-b', '/cart'];
     const pages = steps.map((path, i) => ({ at: now - 60_000 + i * 8_000, url: `http://shop.test${path}`, title: path }));
     const clicks = pages.flatMap((page, i) =>
       page.url.endsWith('/cart') ? [{ at: page.at, url: pages[i - 1].url, label: 'Add to Cart' }] : [],
@@ -197,6 +197,40 @@ describe('lost detector across full page loads', () => {
     await vi.advanceTimersByTimeAsync(2_000);
     page.stop();
     expect(seen).toHaveLength(afterBounce + 1);
+  });
+
+  it('does not prompt on checkout for wandering that came before it', async () => {
+    vi.useFakeTimers();
+    sessionStorage.clear();
+    const seen: Trigger[] = [];
+    // Flips through the top tabs (fairly prompted), then books straight through and idles on checkout.
+    const steps: [string, string, number][] = [
+      ['/', '', 6_000],
+      ['/flights', 'Flights', 2_300],
+      ['/cars', 'Cars', 2_100],
+      ['/hotels', 'Packages', 2_400],
+      ['/trips', 'Trips', 1_700],
+      ['/flights', 'Flights', 5_000],
+      ['/cars', 'Cars', 1_100],
+      ['/hotels', 'Packages', 300],
+      ['/cars', 'Cars', 350],
+      ['/hotels', 'Packages', 2_000],
+      ['/trips', 'Trips', 1_100],
+      ['/hotels', 'Packages', 1_700],
+      ['/hotel', 'View deal', 3_000],
+      ['/trip', 'Reserve', 3_000],
+    ];
+    let page = loadPage('/', seen);
+    for (const [path, label, dwell] of steps.slice(1).concat([['/checkout', 'Continue to checkout', 120_000]])) {
+      page.breadcrumbs.add('click', { label });
+      page.stop();
+      if (path === '/checkout') expect(seen.length).toBeGreaterThan(0);
+      const before = seen.length;
+      page = loadPage(path, seen);
+      await vi.advanceTimersByTimeAsync(dwell);
+      if (path === '/checkout') expect(seen.slice(before)).toEqual([]);
+    }
+    page.stop();
   });
 
   it('prompts again for a new episode once the score has dropped', async () => {

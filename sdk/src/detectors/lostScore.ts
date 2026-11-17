@@ -207,14 +207,13 @@ export function lastProgress(snapshot: LostSnapshot): LostClick | undefined {
   return last;
 }
 
-/** Pages minus those reached through a progress click, so returning to the cart after each "Add to cart" is not a loop. */
-export function loopPages(snapshot: LostSnapshot): LostPage[] {
-  return snapshot.pages.filter((page, i) => {
-    const since = i > 0 ? snapshot.pages[i - 1].at : -Infinity;
-    const via = snapshot.clicks.filter((click) => click.at >= since && click.at <= page.at);
-    const last = via[via.length - 1];
-    return !last || !isProgressLabel(last.label);
-  });
+/**
+ * Pages since the latest progress click. A step forward starts afresh: shopping on after "Add to
+ * cart" is not a loop, and reaching checkout after browsing around is not page hopping.
+ */
+export function pagesSinceProgress(snapshot: LostSnapshot): LostPage[] {
+  const last = lastProgress(snapshot);
+  return last ? snapshot.pages.filter((page) => page.at >= last.at) : snapshot.pages;
 }
 
 export function clicksWithoutNavigation(snapshot: LostSnapshot, ms: number): number {

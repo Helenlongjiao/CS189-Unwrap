@@ -501,6 +501,30 @@ export const lostScenarios: LostScenario[] = [
     },
   },
   {
+    id: 'competent-shop-add-same-again',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Amazon test site · Cart',
+    what: 'Adds earbuds, goes back to Electronics, opens the earbuds again and adds a second pair',
+    play: async (t) => {
+      t.navigate('/electronics', 'Electronics');
+      await t.tick(6_000);
+      for (let i = 0; i < 2; i++) {
+        t.click('PulseBuds Pro Wireless Earbuds');
+        t.navigate('/product-earbuds', 'PulseBuds Pro Wireless Earbuds');
+        await t.tick(6_000);
+        t.click('Add to Cart');
+        t.navigate('/cart', 'Shopping Cart');
+        await t.tick(6_000);
+        if (i === 0) {
+          t.click('Electronics');
+          t.navigate('/electronics', 'Electronics');
+          await t.tick(6_000);
+        }
+      }
+    },
+  },
+  {
     id: 'stuck-form-then-leave',
     kind: 'stuck',
     source: 'Linden Clinic · Refill',
