@@ -80,3 +80,78 @@ export function watchChanges(): ChangeWatcher {
     },
   };
 }
+
+/**
+ * An empty, fixed-position element: a backdrop or transparent layer. A click that lands on one
+ * (instead of the control underneath) means something is covering the page.
+ */
+export function isEmptyOverlay(el: Element): boolean {
+  try {
+    if (getComputedStyle(el).position !== 'fixed') return false;
+  } catch {
+    return false;
+  }
+  return !(el.textContent ?? '').trim() && !el.querySelector('img,svg,video,canvas,input,button,a');
+}
+
+type EffectListener = () => void;
+const effectListeners = new Set<EffectListener>();
+
+/** Wraps `obj[key]` once so every call tells the active watchers. Always calls through. */
+function wrapOnce(obj: unknown, key: string) {
+  const target = obj as Record<string, unknown> | null | undefined;
+  const fn = target?.[key];
+  if (!target || typeof fn !== 'function' || (fn as { __pulseEffect?: boolean }).__pulseEffect) return;
+  const wrapped = function (this: unknown, ...args: unknown[]) {
+    effectListeners.forEach((notify) => notify());
+    return (fn as (...a: unknown[]) => unknown).apply(this, args);
+  };
+  (wrapped as { __pulseEffect?: boolean }).__pulseEffect = true;
+  try {
+    target[key] = wrapped;
+  } catch {
+    // Read-only in this browser: the response is simply not observed.
+  }
+}
+
+export interface SideEffectWatcher {
+  /** True if, since `at`, the page wrote to the clipboard, opened a window, or moved focus away from `tapped`. */
+  since(at: number, tapped?: Element): boolean;
+  stop(): void;
+}
+
+/**
+ * Responses that do not change the page: a copy button, a link that opens a new window, an icon
+ * that only moves focus to a field. They count as the page responding.
+ */
+export function watchSideEffects(): SideEffectWatcher {
+  wrapOnce(typeof navigator !== 'undefined' ? navigator.clipboard : undefined, 'writeText');
+  wrapOnce(typeof navigator !== 'undefined' ? navigator.clipboard : undefined, 'write');
+  wrapOnce(window, 'open');
+
+  let effectAt = -1;
+  let focusAt = -1;
+  let focused: Element | undefined;
+  const notify = () => {
+    effectAt = Date.now();
+  };
+  effectListeners.add(notify);
+  const onFocus = (e: FocusEvent) => {
+    if (e.target instanceof Element && !isInsidePulse(e.target)) {
+      focused = e.target;
+      focusAt = Date.now();
+    }
+  };
+  document.addEventListener('focusin', onFocus, true);
+
+  return {
+    since(at, tapped) {
+      if (effectAt >= at) return true;
+      return !!focused && focusAt >= at && !!tapped && !tapped.contains(focused) && !focused.contains(tapped);
+    },
+    stop() {
+      effectListeners.delete(notify);
+      document.removeEventListener('focusin', onFocus, true);
+    },
+  };
+}

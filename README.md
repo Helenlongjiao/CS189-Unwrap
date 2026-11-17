@@ -208,8 +208,8 @@ Included variants: disabled controls (for a rage click or dead click on a greyed
 
 | Trigger | Rule |
 | --- | --- |
-| Rage click | 3+ clicks within 700 ms, within 30 px of each other, **plus** evidence the page is broken (see below). Always prompts if a request failed during the burst or the control is disabled |
-| Dead click | Clicking something interactive produces no DOM change, submit, scroll, navigation or network request within 1 s, or the control is disabled. Scored; needs 45 points |
+| Rage click | 3+ clicks within 700 ms, within 30 px of each other, **plus** evidence the page is broken (see below). Always prompts if a request failed during the burst, a request is still unanswered 3 s after it, or the control is disabled. A request in progress, a copy to the clipboard, a new window, or focus moving to a field counts as the page responding. Clicks that land on an empty fixed overlay count as evidence the page is blocked |
+| Dead click | Clicking something interactive produces no DOM change, submit, scroll, navigation, network request, clipboard copy, new window or focus move within 1 s, or the control is disabled. Scored; needs 45 points. A pointer cursor counts as clickable |
 | Error | Any captured error is stored; it may prompt only if it follows a user action (click, Enter or form submit) within 3 s and scores 50 points. A failed request counts from when it was sent, so slow failures still count and background polls do not. Cancelled requests, third-party trackers and the site's own analytics endpoints are ignored |
 
 Rage clicks are a page-break signal, separate from the lostness score. A burst is scored from several layers of evidence, and prompts at 50 points (`scoreThreshold.rageClick`) unless the fixed rule above applies:

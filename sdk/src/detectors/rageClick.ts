@@ -3,10 +3,13 @@ import { Ledger, type Evidence } from '../scoring';
 import type { Tap } from '../taps';
 import type { Detector } from './context';
 import { watchRequests } from './requests';
-import { isTextField, watchChanges } from './signals';
+import { isEmptyOverlay, isTextField, watchChanges, watchSideEffects } from './signals';
 
 /** Mouse path length (px) between the first and last click of a burst that counts as frantic. */
 const FRANTIC_MOUSE_PX = 150;
+
+/** A request still unanswered this long after the burst means the page is not responding. */
+const HANG_MS = 3000;
 
 interface MouseSample {
   x: number;
@@ -27,7 +30,9 @@ interface MouseSample {
  *
  * Fixed rule: if the page is clearly broken, it prompts no matter what else the score says.
  * That means a request failed during the burst (even if the page then showed an error message),
- * or the control is disabled. Otherwise the burst prompts only when its score reaches
+ * a request is still unanswered `HANG_MS` after the burst, or the control is disabled. A request
+ * that is still in progress, a clipboard copy, a new window or focus moving to a field counts as
+ * the page responding; a click on an empty fixed overlay is evidence something is blocking the page. Otherwise the burst prompts only when its score reaches
  * `scoreThreshold.rageClick`.
  *
  * Judged on every click from the `count`-th on. By then the earlier clicks have had their chance
@@ -40,11 +45,13 @@ export const rageClickDetector: Detector = ({ config, engine, transport, onTap }
   const threshold = config.scoreThreshold.rageClick;
   const changes = watchChanges();
   const requests = watchRequests((url) => transport.isOwnRequest(url));
+  const effects = watchSideEffects();
   const ledgers = new WeakMap<Element, Ledger>();
   let recent: Tap[] = [];
   let mouse: MouseSample[] = [];
   let burstDone = false;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  let hangTimer: ReturnType<typeof setTimeout> | undefined;
 
   const onMove = (e: MouseEvent) => {
     const last = mouse[mouse.length - 1];
@@ -78,21 +85,24 @@ export const rageClickDetector: Detector = ({ config, engine, transport, onTap }
     if (findInteractive(tap.target)) add('interactive-target', 10);
     else if (!tap.disabled) add('plain-target', -25);
     if (isTextField(tap.target)) add('text-field', -40);
+    if (isEmptyOverlay(tap.target)) add('covering-overlay', 25);
 
     // Responses to earlier clicks in the burst are already visible; this click's own is not yet.
-    const responded = changes.changedSince(first);
+    const responded = changes.changedSince(first) || effects.since(first, tap.target);
     if (responded) add('page-responded', -30);
     else add('no-response', 30);
 
     const net = requests.since(first);
     if (net.failed > 0) add('request-failed', 40);
     else if (net.ok > 0) add('request-ok', -25);
+    else if (net.started > 0) add('request-pending', -25);
     else if (net.started === 0 && !responded) add('no-request', 10);
 
     if (mouseTravel(first, tap.at) >= FRANTIC_MOUSE_PX) add('frantic-mouse', 15);
 
     const rule = net.failed > 0 ? 'request-failed' : tap.disabled ? 'disabled-control' : undefined;
-    return { target, ledger, n, rule, ...ledger.score(now, evidence) };
+    const pendingRequests = net.started - net.ok - net.failed;
+    return { target, ledger, n, rule, pendingRequests, ...ledger.score(now, evidence) };
   };
 
   /** Prompts if the page is clearly broken or the score is high enough; with `settled`, records a burst that never did. */
@@ -114,6 +124,17 @@ export const rageClickDetector: Detector = ({ config, engine, transport, onTap }
       return true;
     }
     if (settled) {
+      if (result.pendingRequests > 0) {
+        // A request is still out. If it never answers or fails, the page is not responding.
+        const burstStart = cluster[0].at;
+        hangTimer = setTimeout(() => {
+          const net = requests.since(burstStart);
+          const rule = net.failed > 0 ? 'request-failed' : net.started - net.ok > 0 ? 'request-hanging' : undefined;
+          if (rule) engine.fire('rage_click', { ...input, context: { ...input.context, fixedRule: rule } });
+          else engine.record('rage_click', input);
+        }, HANG_MS);
+        return false;
+      }
       engine.record('rage_click', input);
       // Another burst on the same control soon after is more telling than the first.
       result.ledger.add('earlier-burst', 15, Date.now());
@@ -145,8 +166,10 @@ export const rageClickDetector: Detector = ({ config, engine, transport, onTap }
   return () => {
     offTap();
     clearTimeout(settleTimer);
+    clearTimeout(hangTimer);
     document.removeEventListener('mousemove', onMove, { capture: true });
     changes.stop();
     requests.stop();
+    effects.stop();
   };
 };

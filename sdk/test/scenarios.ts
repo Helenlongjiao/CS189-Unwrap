@@ -68,6 +68,14 @@ function stubFetch(handler: (url: string, init?: RequestInit) => Response | Prom
   window.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init)) as typeof fetch;
 }
 
+/** A page whose buttons write to the clipboard. */
+function installClipboard() {
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
+  document.getElementById('copy')?.addEventListener('click', () => {
+    void navigator.clipboard.writeText('ABCD-1234');
+  });
+}
+
 const ok = () => new Response('{}', { status: 200 });
 const fail = (status: number) => new Response('{}', { status });
 
@@ -921,6 +929,126 @@ export const scenarios: Scenario[] = [
       click($('#menu'));
       await tick(1200);
       await poll;
+    },
+  },
+  // ───────────── held-out: harder rage / dead click cases, written before changing the detectors ─────────────
+  {
+    id: 'held-rage-hung-request-spinner',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Hammers "Purchase" while a spinner shows and the booking request never answers',
+    html: '<button id="purchase">Purchase</button><div id="status"></div>',
+    prepare: () => {
+      stubFetch(() => new Promise<Response>(() => undefined));
+      document.getElementById('purchase')!.addEventListener('click', () => {
+        document.getElementById('status')!.textContent = 'Processing…';
+        void window.fetch('/api/book', { method: 'POST', body: '{}' });
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#purchase'), 4, 200);
+      await tick(5000);
+    },
+  },
+  {
+    id: 'held-rage-slow-request-impatient',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Taps "Search" three times while a slow (1.5 s) but working request completes',
+    html: '<button id="search">Search</button><div id="status"></div>',
+    prepare: () => {
+      stubFetch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return ok();
+      });
+      document.getElementById('search')!.addEventListener('click', () => {
+        void window.fetch('/api/search');
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#search'), 3, 200);
+      await tick(4000);
+    },
+  },
+  {
+    id: 'held-rage-copy-code-button',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Amazon · Gift cards',
+    expect: 'quiet',
+    what: 'Taps "Copy code" three times; it only writes to the clipboard',
+    html: '<button id="copy">Copy code</button>',
+    prepare: installClipboard,
+    play: async ({ $, burst, tick }) => {
+      await burst($('#copy'), 3, 150);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-rage-blocked-by-overlay',
+    detector: 'rage_click',
+    heldOut: true,
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Clicks "Add to bag" four times, but an invisible overlay left on the page swallows every click',
+    html: '<button id="add">Add to bag</button><div id="overlay" style="position:fixed;inset:0"></div>',
+    play: async ({ $, burst, tick }) => {
+      await burst($('#overlay'), 4, 120);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'held-dead-search-icon-focuses-input',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Amazon · Home',
+    expect: 'quiet',
+    what: 'Clicks the search icon; the only response is the search box taking focus',
+    html: '<input id="q" placeholder="Search" /><button id="icon" type="button">Search</button>',
+    prepare: () =>
+      document.getElementById('icon')!.addEventListener('click', () => {
+        (document.getElementById('q') as HTMLInputElement).focus();
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#icon'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'held-dead-copy-link-clipboard',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Southwest · Confirmation',
+    expect: 'quiet',
+    what: 'Clicks "Copy confirmation link"; it only writes to the clipboard',
+    html: '<button id="copy" type="button">Copy confirmation link</button>',
+    prepare: installClipboard,
+    play: async ({ $, click, tick }) => {
+      click($('#copy'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'held-dead-opens-new-tab',
+    detector: 'dead_click',
+    heldOut: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks "Print itinerary"; the page opens a new window and nothing in this page changes',
+    html: '<button id="print" type="button">Print itinerary</button>',
+    prepare: () => {
+      window.open = vi.fn(() => null) as typeof window.open;
+      document.getElementById('print')!.addEventListener('click', () => {
+        window.open('/itinerary/print', '_blank');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#print'));
+      await tick(1100);
     },
   },
 ];
