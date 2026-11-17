@@ -427,7 +427,7 @@ export const lostFalsePositiveGuards: LostScenario[] = [
       for (const slug of ['boots', 'jacket', 'beanie']) {
         t.click(`View ${slug}`);
         t.navigate(`/product/${slug}`, slug);
-        await t.tick(9_000);
+        await t.tick(8_000);
       }
       await t.tick(6_000);
     },
@@ -701,18 +701,51 @@ export const lostFalsePositiveGuards: LostScenario[] = [
     },
   },
   {
-    id: 'competent-amazon-search-to-pdp',
-    kind: 'competent_navigation',
-    tags: ['shopping', 'search'],
-    source: 'Amazon · Search',
-    what: 'Search results to product (not the dead Prime filter)',
-    html: '<input type="search" data-pulse-search placeholder="Search Amazon" />',
+    id: 'stuck-form-then-leave',
+    kind: 'stuck',
+    source: 'Linden Clinic · Refill',
+    expectTier: 'full',
+    what: 'Touches three refill fields, abandons to home, then opens Help',
     play: async (t) => {
-      t.navigate('/search.html', 'Search results');
-      await t.search('earbuds');
-      await t.tick(3_000);
-      t.click('PulseBuds Pro');
-      t.navigate('/product-earbuds.html', 'PulseBuds Pro');
+      t.navigate('/refill', 'Refill');
+      t.focusField('rx', 'Prescription number');
+      t.focusField('pharmacy', 'Pharmacy');
+      t.focusField('notes', 'Notes');
+      await t.tick(5_000);
+      t.navigate('/home', 'Home');
+      t.click('Help');
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-clicks-same-page',
+    kind: 'stuck',
+    source: 'Northline · Filters',
+    expectTier: 'nudge',
+    what: 'Clicks many filters on the shop without navigating away',
+    play: async (t) => {
+      t.navigate('/shop', 'Shop');
+      for (const label of ['Size 10', 'Blue', 'Waterproof', 'Sale', 'Trail', 'Wide', 'In stock', 'Sort by']) {
+        t.click(label);
+        await t.tick(1_500);
+      }
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'stuck-scroll-reversal',
+    kind: 'stuck',
+    source: 'Linden Clinic · FAQ',
+    expectTier: 'nudge',
+    what: 'Scrolls up and down the FAQ without settling',
+    html: '<main style="height:3000px">FAQ</main>',
+    play: async (t) => {
+      t.navigate('/faq', 'FAQ');
+      const ys = [0, 480, 120, 520, 80, 560, 200];
+      for (const y of ys) {
+        await t.scrollY(y);
+        await t.tick(3_000);
+      }
       await t.tick(6_000);
     },
   },
@@ -737,6 +770,46 @@ export const lostFalsePositiveGuards: LostScenario[] = [
     play: async (t) => {
       t.navigate('/product-earbuds.html', 'PulseBuds Pro');
       await t.tick(50_000);
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-amazon-earbuds-home-lamp',
+    kind: 'competent_navigation',
+    tags: ['shopping'],
+    source: 'Amazon · Home',
+    what: 'Online Shopping → PulseBuds → home → Arc desk lamp (compare two products)',
+    play: async (t) => {
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(10_000);
+      t.navigate('/product-earbuds.html', 'Amazon.com: PulseBuds Pro Wireless Earbuds');
+      await t.tick(14_000);
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(10_000);
+      t.navigate('/product-lamp.html', 'Amazon.com: Arc LED Desk Lamp');
+      await t.tick(12_000);
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-amazon-fast-product-hops',
+    kind: 'competent_navigation',
+    tags: ['shopping', 'reading'],
+    source: 'Amazon · Home',
+    what: 'Fast reader: Electronics → earbuds, lamp, kettle (~9s each), then Online Shopping',
+    play: async (t) => {
+      t.navigate('/electronics.html', 'Amazon.com: Electronics');
+      await t.tick(5_000);
+      for (const [path, title] of [
+        ['/product-earbuds.html', 'Amazon.com: PulseBuds Pro Wireless Earbuds'],
+        ['/product-lamp.html', 'Amazon.com: Arc LED Desk Lamp'],
+        ['/product-kettle.html', 'Amazon.com: Steel Electric Kettle, 1.7L'],
+      ] as const) {
+        t.navigate(path, title);
+        await t.tick(9_000);
+      }
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(6_000);
       await t.tick(6_000);
     },
   },

@@ -1,4 +1,4 @@
-import { DECAY_MS, patternFamily, totalScore } from '../scoring';
+import { DECAY_MS, patternFamily, pointsLeft } from '../scoring';
 import type { Breadcrumb } from '../types';
 
 // Decay, families and summing live in ../scoring so other detectors score the same way.
@@ -54,8 +54,40 @@ export interface LostMatch {
   at: number;
 }
 
+/**
+ * Families that measure the same behavior from two angles. Hopping through pages quickly is both
+ * `hop` and `bounce`; mashing a button is both `clicks` and `repeat-label`; idling on a page while
+ * scrolling is both `dwell` and `scroll`. Each group counts once so one behavior cannot stack.
+ */
+const SHARED_FAMILY: Record<string, string> = {
+  hop: 'pages',
+  bounce: 'pages',
+  clicks: 'clicks',
+  'repeat-label': 'clicks',
+  dwell: 'idle',
+  scroll: 'idle',
+};
+
+export function lostFamily(id: string): string {
+  const family = patternFamily(id);
+  return SHARED_FAMILY[family] ?? family;
+}
+
+/** Like `totalScore` in ../scoring, but grouped by `lostFamily`. */
+function lostScore(matches: LostMatch[], now: number): number {
+  const best = new Map<string, number>();
+  for (const match of matches) {
+    const family = lostFamily(match.id);
+    const left = pointsLeft(match, now);
+    if (Math.abs(left) > Math.abs(best.get(family) ?? 0)) best.set(family, left);
+  }
+  let score = 0;
+  for (const left of best.values()) score += left;
+  return Math.max(0, Math.round(score));
+}
+
 export function lostTier(matches: LostMatch[], now: number): { score: number; tier: 'none' | 'nudge' | 'full' } {
-  const score = totalScore(matches, now);
+  const score = lostScore(matches, now);
   const tier = score >= FULL_SCORE ? 'full' : score >= NUDGE_SCORE ? 'nudge' : 'none';
   return { score, tier };
 }
@@ -150,6 +182,40 @@ export function helpClicks(snapshot: LostSnapshot, ms: number): number {
   return inWindow(snapshot.clicks, snapshot.now, ms).filter((click) => HELP.test(click.label)).length;
 }
 
+/** Distinct pages opened after the latest help click in the window. */
+export function pagesAfterHelp(snapshot: LostSnapshot, ms: number): number {
+  const help = inWindow(snapshot.clicks, snapshot.now, ms).filter((click) => HELP.test(click.label));
+  const last = help[help.length - 1];
+  if (!last) return 0;
+  return new Set(snapshot.pages.filter((page) => page.at >= last.at && snapshot.now - page.at <= ms).map((page) => pageKey(page.url))).size;
+}
+
+/** Clicks that move a task forward. Landing on the cart after "Add to cart" is progress, not a loop. */
+const PROGRESS = /\b(add(ed)? to (cart|bag|basket|trolley)|buy( it)? now|(proceed to )?check ?out|place (your )?order|book now|pay( now| balance)?)\b/i;
+/** Points the latest progress click takes off the score; they fade like any other evidence. */
+export const PROGRESS_POINTS = -30;
+
+export function isProgressLabel(label: string): boolean {
+  return PROGRESS.test(label);
+}
+
+/** The latest progress click that nothing went wrong after. A click on "Pay" followed by an error is not progress. */
+export function lastProgress(snapshot: LostSnapshot): LostClick | undefined {
+  const progress = snapshot.clicks.filter((click) => isProgressLabel(click.label));
+  const last = progress[progress.length - 1];
+  if (!last || snapshot.errors.some((error) => error.at >= last.at)) return undefined;
+  return last;
+}
+
+/**
+ * Pages since the latest progress click. A step forward starts afresh: shopping on after "Add to
+ * cart" is not a loop, and reaching checkout after browsing around is not page hopping.
+ */
+export function pagesSinceProgress(snapshot: LostSnapshot): LostPage[] {
+  const last = lastProgress(snapshot);
+  return last ? snapshot.pages.filter((page) => page.at >= last.at) : snapshot.pages;
+}
+
 export function clicksWithoutNavigation(snapshot: LostSnapshot, ms: number): number {
   const clicks = inWindow(snapshot.clicks, snapshot.now, ms);
   const keys = new Set(inWindow(snapshot.pages, snapshot.now, ms).map((page) => pageKey(page.url)));
@@ -157,12 +223,14 @@ export function clicksWithoutNavigation(snapshot: LostSnapshot, ms: number): num
   return clicks.length;
 }
 
+/** The same control clicked again and again on one page ("Add to bag" on five products is not this). */
 export function repeatedLabel(snapshot: LostSnapshot, ms: number, times: number): boolean {
   const counts = new Map<string, number>();
   for (const click of inWindow(snapshot.clicks, snapshot.now, ms)) {
     const label = click.label.trim().toLowerCase();
     if (!label) continue;
-    counts.set(label, (counts.get(label) ?? 0) + 1);
+    const key = `${pageKey(click.url)} ${label}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return [...counts.values()].some((count) => count >= times);
 }
@@ -179,6 +247,20 @@ export function scrollReversals(snapshot: LostSnapshot, ms: number): number {
     dir = next;
   }
   return reversals;
+}
+
+/** Scrolling steadily down the current page without turning back: reading, not stuck. */
+export function readingForward(snapshot: LostSnapshot): boolean {
+  const last = snapshot.pages[snapshot.pages.length - 1];
+  if (!last) return false;
+  const points = snapshot.scrolls.filter((scroll) => scroll.at >= last.at);
+  let forward = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dy = points[i].y - points[i - 1].y;
+    if (dy <= -40) return false;
+    if (dy >= 40) forward++;
+  }
+  return forward >= 1;
 }
 
 export function dwellNoClick(snapshot: LostSnapshot, ms: number): boolean {
