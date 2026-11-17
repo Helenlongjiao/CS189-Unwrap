@@ -830,6 +830,99 @@ export const scenarios: Scenario[] = [
       await tick(500);
     },
   },
+
+  // ───────────── held-out: harder error cases, written before changing errors.ts ─────────────
+  {
+    id: 'held-error-enter-key-submit-500',
+    detector: 'error',
+    heldOut: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Fills the form and presses Enter (no mouse click); POST /api/book returns 500',
+    html: '<form id="book"><input id="card" name="card" /><button type="submit">Purchase</button></form>',
+    prepare: () => stubFetch((url) => (url.includes('/api/book') ? fail(500) : ok())),
+    play: async ({ $, tick }) => {
+      const card = $<HTMLInputElement>('#card');
+      card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      $('#book').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await window.fetch('/api/book', { method: 'POST', body: '{}' });
+      await tick(500);
+    },
+  },
+  {
+    id: 'held-error-slow-post-500',
+    detector: 'error',
+    heldOut: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Clicks "Purchase"; the booking request hangs for 4 seconds, then returns 500',
+    html: '<button id="purchase">Purchase</button>',
+    prepare: () =>
+      stubFetch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        return fail(500);
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#purchase'));
+      const pending = window.fetch('/api/book', { method: 'POST', body: '{}' });
+      await tick(4200);
+      await pending;
+    },
+  },
+  {
+    id: 'held-error-abort-rejection',
+    detector: 'error',
+    heldOut: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks a filter while a search is in flight; the older search is cancelled and rejects with AbortError',
+    html: '<button id="filter">Nonstop only</button>',
+    play: async ({ $, click, tick }) => {
+      click($('#filter'));
+      await tick(200);
+      const reason = new DOMException('The user aborted a request.', 'AbortError');
+      window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason }));
+    },
+  },
+  {
+    id: 'held-error-first-party-beacon-500',
+    detector: 'error',
+    heldOut: true,
+    source: 'Amazon · Product',
+    expect: 'quiet',
+    what: 'Clicks "Add to cart"; only the site’s own analytics beacon (/api/analytics/collect) returns 500',
+    html: '<button id="add">Add to cart</button>',
+    prepare: () => stubFetch((url) => (url.includes('/analytics/') ? fail(500) : ok())),
+    play: async ({ $, click, tick }) => {
+      click($('#add'));
+      await window.fetch('/api/analytics/collect', { method: 'POST', body: '{}' });
+      await tick(500);
+    },
+  },
+  {
+    id: 'held-error-background-poll-500',
+    detector: 'error',
+    heldOut: true,
+    source: 'Amazon · Home',
+    expect: 'quiet',
+    what: 'A notifications poll starts on its own and returns 500 one second after the user happens to click a menu',
+    html: '<button id="menu">Menu</button>',
+    prepare: () =>
+      stubFetch(async (url) => {
+        if (url.includes('/api/notifications')) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          return fail(500);
+        }
+        return ok();
+      }),
+    play: async ({ $, click, tick }) => {
+      const poll = window.fetch('/api/notifications');
+      await tick(1500);
+      click($('#menu'));
+      await tick(1200);
+      await poll;
+    },
+  },
 ];
 
 /** Scenarios used to tune the detectors and gate CI. */
