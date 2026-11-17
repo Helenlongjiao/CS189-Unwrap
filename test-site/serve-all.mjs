@@ -6,11 +6,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sites = [
-  { port: 5173, root: 'test-site/public', name: 'Skyline Air' },
-  { port: 5174, root: 'test-site/northline', name: 'Northline' },
-  { port: 5175, root: 'test-site/harbor', name: 'Harbor Credit Union' },
-  { port: 5176, root: 'test-site/westbridge', name: 'Westbridge University' },
-  { port: 5177, root: 'test-site/linden', name: 'Linden Clinic' },
+  { port: 5173, root: 'test-site/southwest', name: 'Southwest' },
+  { port: 5174, root: 'test-site/amazon', name: 'Amazon' },
+  { port: 5175, root: 'test-site/expedia', name: 'Expedia' },
+  { port: 5176, root: 'test-site/lululemon', name: 'Lululemon' },
 ];
 
 const kids = sites.map((site) =>

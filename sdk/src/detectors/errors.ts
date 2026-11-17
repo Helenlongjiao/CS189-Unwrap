@@ -33,6 +33,16 @@ function isThirdPartyNoise(raw: unknown): boolean {
 
 const noise = (raw: unknown) => (isThirdPartyNoise(raw) ? { thirdParty: true } : {});
 
+/** Drops `?query` and `#hash` from each URL in a stack trace, keeping the `:line:column` after it. */
+function safeStack(stack: string): string {
+  return stack.replace(/\bhttps?:\/\/[^\s)]+/g, (url) => {
+    const cut = url.search(/[?#]/);
+    if (cut < 0) return url;
+    const position = /(?::\d+){1,2}$/.exec(url.slice(cut))?.[0] ?? '';
+    return url.slice(0, cut) + position;
+  });
+}
+
 /**
  * Captures JS exceptions, unhandled promise rejections, `console.error`, failed resource loads,
  * and failed network calls (5xx or no response). Every error is stored with the user's trail.
@@ -99,7 +109,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
       ...noise(ev.filename),
       line: ev.lineno,
       column: ev.colno,
-      stack: ev.error?.stack ? truncate(String(ev.error.stack), 1000) : undefined,
+      stack: ev.error?.stack ? truncate(safeStack(String(ev.error.stack)), 1000) : undefined,
     });
   };
 
@@ -108,7 +118,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
     report({
       kind: 'promise',
       message: truncate(reason instanceof Error ? reason.message : String(reason), 300),
-      stack: reason instanceof Error && reason.stack ? truncate(reason.stack, 1000) : undefined,
+      stack: reason instanceof Error && reason.stack ? truncate(safeStack(reason.stack), 1000) : undefined,
     });
   };
 

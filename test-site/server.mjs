@@ -1,20 +1,20 @@
-// Static demo site used to try the SDK. One process per industry, selected with TEST_SITE_*.
+// Static demo site used to try the SDK. One process per brand, selected with TEST_SITE_*.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
+const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'southwest');
 const ROOT = process.env.TEST_SITE_ROOT ? path.resolve(process.env.TEST_SITE_ROOT) : PUBLIC;
 const PORT = Number(process.env.TEST_SITE_PORT) || 5173;
-const NAME = process.env.TEST_SITE_NAME || 'Skyline Air';
+const NAME = process.env.TEST_SITE_NAME || 'Southwest';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'application/javascript', '.svg': 'image/svg+xml' };
 
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  // Intentional page break on the flight demo: the booking API always fails.
-  if (NAME === 'Skyline Air' && url.pathname === '/api/book' && req.method === 'POST') {
+  // Intentional page break on the airline demo: the booking API always fails.
+  if (NAME === 'Southwest' && url.pathname === '/api/book' && req.method === 'POST') {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'inventory service timeout' }));
   }

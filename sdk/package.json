@@ -8,6 +8,7 @@
   "scripts": {
     "build": "rollup -c",
     "test": "vitest run",
+    "test:benchmark": "sh -c 'vitest run scenarios.test.ts lostScenarios.test.ts 2>&1 | tee test/benchmark-last.log; test \"${PIPESTATUS[0]}\" -eq 0'",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

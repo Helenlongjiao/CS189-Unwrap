@@ -24,12 +24,12 @@ services:
       - "5174:5174"
       - "5175:5175"
       - "5176:5176"
-      - "5177:5177"
     environment:
       DATABASE_URL: postgres://pulse:pulse@db:5432/pulse_dev
       PORT: "4000"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
     depends_on:
       db:
         condition: service_healthy

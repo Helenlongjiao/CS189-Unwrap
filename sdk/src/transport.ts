@@ -1,3 +1,5 @@
+import { redactDeep } from './redact';
+
 export type OutboundEvent = Record<string, unknown> & { kind: string };
 
 function getFetch(): typeof fetch | undefined {
@@ -7,6 +9,7 @@ function getFetch(): typeof fetch | undefined {
 /**
  * Batches events and ships them as `text/plain` JSON. That content type keeps requests
  * "simple" (no CORS preflight) and is the only reliable option for `sendBeacon` on page exit.
+ * Everything sent passes through `redactDeep` first, so personal info never leaves the browser.
  */
 export class Transport {
   private queue: OutboundEvent[] = [];
@@ -41,7 +44,7 @@ export class Transport {
   flush(exiting = false) {
     if (!this.queue.length) return;
     const events = this.queue.splice(0, this.queue.length);
-    const body = JSON.stringify({ siteKey: this.siteKey, sessionId: this.sessionId, meta: this.meta(), events });
+    const body = JSON.stringify({ siteKey: this.siteKey, sessionId: this.sessionId, meta: redactDeep(this.meta()), events: redactDeep(events) });
     const url = `${this.endpoint}/v1/events`;
     if (exiting && typeof navigator.sendBeacon === 'function') {
       if (navigator.sendBeacon(url, new Blob([body], { type: 'text/plain' }))) return;
@@ -53,7 +56,7 @@ export class Transport {
 
   /** Posts one JSON body as `text/plain` (no CORS preflight), surviving page unload. */
   post(path: string, payload: Record<string, unknown>): Promise<unknown> {
-    const body = JSON.stringify({ siteKey: this.siteKey, sessionId: this.sessionId, ...payload });
+    const body = JSON.stringify({ siteKey: this.siteKey, sessionId: this.sessionId, ...redactDeep(payload) });
     return this.request(path, { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } });
   }
 
