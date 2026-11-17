@@ -111,12 +111,12 @@ export const LOST_BASELINE = {
 } as const;
 /** Snapshot of the last baseline run */
 export const LOST_BASELINE_SNAPSHOT = {
-  measuredFalsePositiveRate: 4 / 24,
-  measuredEligibleFalsePositiveRate: 4 / 24,
-  measuredWeightedFalsePositiveRate: 0.083,
+  measuredFalsePositiveRate: 5 / 25,
+  measuredEligibleFalsePositiveRate: 5 / 25,
+  measuredWeightedFalsePositiveRate: 0.1,
   measuredTruePositiveRate: 22 / 22,
   measuredOvershootRate: 1 / 10,
-  competentTotal: 24,
+  competentTotal: 25,
   stuckTotal: 22,
   measuredAt: '2026-11-17',
 } as const;

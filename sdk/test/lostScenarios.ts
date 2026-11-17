@@ -427,7 +427,7 @@ export const lostFalsePositiveGuards: LostScenario[] = [
       for (const slug of ['boots', 'jacket', 'beanie']) {
         t.click(`View ${slug}`);
         t.navigate(`/product/${slug}`, slug);
-        await t.tick(9_000);
+        await t.tick(8_000);
       }
       await t.tick(6_000);
     },
@@ -788,6 +788,28 @@ export const lostFalsePositiveGuards: LostScenario[] = [
       await t.tick(10_000);
       t.navigate('/product-lamp.html', 'Amazon.com: Arc LED Desk Lamp');
       await t.tick(12_000);
+      await t.tick(6_000);
+    },
+  },
+  {
+    id: 'competent-amazon-fast-product-hops',
+    kind: 'competent_navigation',
+    tags: ['shopping', 'reading'],
+    source: 'Amazon · Home',
+    what: 'Fast reader: Electronics → earbuds, lamp, kettle (~9s each), then Online Shopping',
+    play: async (t) => {
+      t.navigate('/electronics.html', 'Amazon.com: Electronics');
+      await t.tick(5_000);
+      for (const [path, title] of [
+        ['/product-earbuds.html', 'Amazon.com: PulseBuds Pro Wireless Earbuds'],
+        ['/product-lamp.html', 'Amazon.com: Arc LED Desk Lamp'],
+        ['/product-kettle.html', 'Amazon.com: Steel Electric Kettle, 1.7L'],
+      ] as const) {
+        t.navigate(path, title);
+        await t.tick(9_000);
+      }
+      t.navigate('/index.html', 'Amazon.com: Online Shopping');
+      await t.tick(6_000);
       await t.tick(6_000);
     },
   },
