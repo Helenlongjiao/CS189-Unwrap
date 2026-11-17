@@ -13,10 +13,10 @@ import { createSiteResolver } from './sites.js';
 
 const SDK_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../sdk/dist');
 
-export function createApp({ pool, surveyGenerator = null, rateLimitPerMinute = 600 }) {
+export function createApp({ pool, surveyGenerator = null, embedder = null, rateLimitPerMinute = 600 }) {
   const app = express();
   const resolveSite = createSiteResolver(pool);
-  const deps = { pool, resolveSite, surveyGenerator };
+  const deps = { pool, resolveSite, surveyGenerator, embedder };
 
   app.disable('x-powered-by');
   app.set('trust proxy', 1);

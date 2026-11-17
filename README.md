@@ -86,7 +86,12 @@ These are original lookalike demos for testing (not affiliated with those brands
 
 The published image is `ghcr.io/helenlongjiao/cs189-unwrap:latest` ([package](https://github.com/Helenlongjiao/CS189-Unwrap/pkgs/container/cs189-unwrap)). `docker compose up` pulls it. If GitHub still marks that package private, run `docker compose up --build` instead. That builds the same image from this repo.
 
-AI-written surveys are optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. Without that key, surveys use the built-in templates. The lost-user guide does not call OpenAI.
+An OpenAI key is optional. Copy `.env.example` to `.env` in this folder and set `OPENAI_API_KEY`, then run `docker compose up` again. The key turns on two extras:
+
+- **AI-written surveys.** Without the key, surveys use the built-in templates.
+- **Meaning search in the lost-user guide.** When the demo sites are crawled, each page's own content (not the shared menu) is turned into an embedding with `text-embedding-3-small`. The visitor's question gets one too, so "luggage" can find a page titled "Bags". The guide merges these results with its keyword search. Without the key, or if OpenAI fails or takes more than 2 seconds, the guide uses keyword search alone. With the key, the visitor's guide question is sent to OpenAI. On the demo sites, this raises right-page-first answers from 57% to 86% ([quiz results](docs/guide-eval-results.md)).
+
+For a regional (data-residency) key, also set `OPENAI_BASE_URL`, e.g. `https://us.api.openai.com/v1`.
 
 ## Repository Layout
 
@@ -108,7 +113,10 @@ npm run db:migrate          # creates tables and seeds the default survey templa
 npm run dev                 # builds the SDK and starts the API on http://localhost:4000
 npm test                    # SDK unit tests + API integration tests (uses a pulse_test database)
 npm run test:benchmark      # Detector false-positive / true-positive benchmark suites (SDK only)
+npm run eval:guide -w server  # Lost-user guide quiz: 36 questions on the demo sites, keyword vs. meaning search
 ```
+
+The guide quiz (`server/scripts/guide-questions.json`) reads the demo sites straight from `test-site/`, so it needs no servers or database. With `OPENAI_API_KEY` in `server/.env` it also scores meaning search at several similarity cutoffs. The cutoff the guide uses is `MIN_SIMILARITY` in `server/src/guideMatch.js`. The latest results, with and without hybrid search and for every question, are in [docs/guide-eval-results.md](docs/guide-eval-results.md).
 
 ### Detection benchmarks
 
