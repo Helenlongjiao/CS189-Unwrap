@@ -39,6 +39,12 @@ export interface Scenario {
    * do on pages they were not fitted to.
    */
   heldOut?: boolean;
+  /**
+   * Regression scenarios were written AFTER reading the detector code, aimed at a gap found there.
+   * They guard against that gap coming back, but they are not a measurement: they are excluded from
+   * the benchmark rates and from the held-out report.
+   */
+  regression?: boolean;
   play: (api: Api) => Promise<void>;
 }
 
@@ -61,16 +67,24 @@ export const api: Api = {
   },
 };
 
-const SAME_ORIGIN = `${location.origin}/assets/app.js`;
+export const SAME_ORIGIN = `${location.origin}/assets/app.js`;
 
-function stubFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
+export function stubFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
   window.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => handler(String(input), init)) as typeof fetch;
 }
 
-const ok = () => new Response('{}', { status: 200 });
-const fail = (status: number) => new Response('{}', { status });
+/** A page whose buttons write to the clipboard. */
+export function installClipboard() {
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn(async () => undefined) }, configurable: true });
+  document.getElementById('copy')?.addEventListener('click', () => {
+    void navigator.clipboard.writeText('ABCD-1234');
+  });
+}
 
-function jsError(message: string, filename = SAME_ORIGIN) {
+export const ok = () => new Response('{}', { status: 200 });
+export const fail = (status: number) => new Response('{}', { status });
+
+export function jsError(message: string, filename = SAME_ORIGIN) {
   window.dispatchEvent(new ErrorEvent('error', { message, filename, lineno: 12 }));
 }
 
@@ -1154,11 +1168,226 @@ export const scenarios: Scenario[] = [
       await tick(500);
     },
   },
+
+  // ───────────── regression: gaps found by reading errors.ts; guard against them coming back ─────────────
+  {
+    id: 'regression-error-enter-key-submit-500',
+    detector: 'error',
+    regression: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Fills the form and presses Enter (no mouse click); POST /api/book returns 500',
+    html: '<form id="book"><input id="card" name="card" /><button type="submit">Purchase</button></form>',
+    prepare: () => stubFetch((url) => (url.includes('/api/book') ? fail(500) : ok())),
+    play: async ({ $, tick }) => {
+      const card = $<HTMLInputElement>('#card');
+      card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      $('#book').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await window.fetch('/api/book', { method: 'POST', body: '{}' });
+      await tick(500);
+    },
+  },
+  {
+    id: 'regression-error-slow-post-500',
+    detector: 'error',
+    regression: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Clicks "Purchase"; the booking request hangs for 4 seconds, then returns 500',
+    html: '<button id="purchase">Purchase</button>',
+    prepare: () =>
+      stubFetch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        return fail(500);
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#purchase'));
+      const pending = window.fetch('/api/book', { method: 'POST', body: '{}' });
+      await tick(4200);
+      await pending;
+    },
+  },
+  {
+    id: 'regression-error-abort-rejection',
+    detector: 'error',
+    regression: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks a filter while a search is in flight; the older search is cancelled and rejects with AbortError',
+    html: '<button id="filter">Nonstop only</button>',
+    play: async ({ $, click, tick }) => {
+      click($('#filter'));
+      await tick(200);
+      const reason = new DOMException('The user aborted a request.', 'AbortError');
+      window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason }));
+    },
+  },
+  {
+    id: 'regression-error-first-party-beacon-500',
+    detector: 'error',
+    regression: true,
+    source: 'Amazon · Product',
+    expect: 'quiet',
+    what: 'Clicks "Add to cart"; only the site’s own analytics beacon (/api/analytics/collect) returns 500',
+    html: '<button id="add">Add to cart</button>',
+    prepare: () => stubFetch((url) => (url.includes('/analytics/') ? fail(500) : ok())),
+    play: async ({ $, click, tick }) => {
+      click($('#add'));
+      await window.fetch('/api/analytics/collect', { method: 'POST', body: '{}' });
+      await tick(500);
+    },
+  },
+  {
+    id: 'regression-error-background-poll-500',
+    detector: 'error',
+    regression: true,
+    source: 'Amazon · Home',
+    expect: 'quiet',
+    what: 'A notifications poll starts on its own and returns 500 one second after the user happens to click a menu',
+    html: '<button id="menu">Menu</button>',
+    prepare: () =>
+      stubFetch(async (url) => {
+        if (url.includes('/api/notifications')) {
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          return fail(500);
+        }
+        return ok();
+      }),
+    play: async ({ $, click, tick }) => {
+      const poll = window.fetch('/api/notifications');
+      await tick(1500);
+      click($('#menu'));
+      await tick(1200);
+      await poll;
+    },
+  },
+  // ───────────── regression: gaps found by reading the rage / dead click code ─────────────
+  {
+    id: 'regression-rage-hung-request-spinner',
+    detector: 'rage_click',
+    regression: true,
+    source: 'Southwest · Checkout',
+    expect: 'prompt',
+    what: 'Hammers "Purchase" while a spinner shows and the booking request never answers',
+    html: '<button id="purchase">Purchase</button><div id="status"></div>',
+    prepare: () => {
+      stubFetch(() => new Promise<Response>(() => undefined));
+      document.getElementById('purchase')!.addEventListener('click', () => {
+        document.getElementById('status')!.textContent = 'Processing…';
+        void window.fetch('/api/book', { method: 'POST', body: '{}' });
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#purchase'), 4, 200);
+      await tick(5000);
+    },
+  },
+  {
+    id: 'regression-rage-slow-request-impatient',
+    detector: 'rage_click',
+    regression: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Taps "Search" three times while a slow (1.5 s) but working request completes',
+    html: '<button id="search">Search</button><div id="status"></div>',
+    prepare: () => {
+      stubFetch(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return ok();
+      });
+      document.getElementById('search')!.addEventListener('click', () => {
+        void window.fetch('/api/search');
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#search'), 3, 200);
+      await tick(4000);
+    },
+  },
+  {
+    id: 'regression-rage-copy-code-button',
+    detector: 'rage_click',
+    regression: true,
+    source: 'Amazon · Gift cards',
+    expect: 'quiet',
+    what: 'Taps "Copy code" three times; it only writes to the clipboard',
+    html: '<button id="copy">Copy code</button>',
+    prepare: installClipboard,
+    play: async ({ $, burst, tick }) => {
+      await burst($('#copy'), 3, 150);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'regression-rage-blocked-by-overlay',
+    detector: 'rage_click',
+    regression: true,
+    source: 'Lululemon · Product',
+    expect: 'prompt',
+    what: 'Clicks "Add to bag" four times, but an invisible overlay left on the page swallows every click',
+    html: '<button id="add">Add to bag</button><div id="overlay" style="position:fixed;inset:0"></div>',
+    play: async ({ $, burst, tick }) => {
+      await burst($('#overlay'), 4, 120);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'regression-dead-search-icon-focuses-input',
+    detector: 'dead_click',
+    regression: true,
+    source: 'Amazon · Home',
+    expect: 'quiet',
+    what: 'Clicks the search icon; the only response is the search box taking focus',
+    html: '<input id="q" placeholder="Search" /><button id="icon" type="button">Search</button>',
+    prepare: () =>
+      document.getElementById('icon')!.addEventListener('click', () => {
+        (document.getElementById('q') as HTMLInputElement).focus();
+      }),
+    play: async ({ $, click, tick }) => {
+      click($('#icon'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'regression-dead-copy-link-clipboard',
+    detector: 'dead_click',
+    regression: true,
+    source: 'Southwest · Confirmation',
+    expect: 'quiet',
+    what: 'Clicks "Copy confirmation link"; it only writes to the clipboard',
+    html: '<button id="copy" type="button">Copy confirmation link</button>',
+    prepare: installClipboard,
+    play: async ({ $, click, tick }) => {
+      click($('#copy'));
+      await tick(1100);
+    },
+  },
+  {
+    id: 'regression-dead-opens-new-tab',
+    detector: 'dead_click',
+    regression: true,
+    source: 'Expedia · Flights',
+    expect: 'quiet',
+    what: 'Clicks "Print itinerary"; the page opens a new window and nothing in this page changes',
+    html: '<button id="print" type="button">Print itinerary</button>',
+    prepare: () => {
+      window.open = vi.fn(() => null) as typeof window.open;
+      document.getElementById('print')!.addEventListener('click', () => {
+        window.open('/itinerary/print', '_blank');
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#print'));
+      await tick(1100);
+    },
+  },
 ];
 
-/** Scenarios used to tune the detectors and gate CI. */
-export const ciScenarios = scenarios.filter((s) => !s.heldOut);
-/** Scenarios written after tuning; reported separately and never gate CI. */
+/** Scenarios used to tune the detectors; their rates gate CI. */
+export const ciScenarios = scenarios.filter((s) => !s.heldOut && !s.regression);
+/** Guards for gaps already fixed. Each must pass, but they are not part of the benchmark rates. */
+export const regressionScenarios = scenarios.filter((s) => s.regression);
+/** Scenarios written after tuning from the demo sites; reported separately and never gate CI. */
 export const heldOutScenarios = scenarios.filter((s) => s.heldOut);
 
 export { ENDPOINT };

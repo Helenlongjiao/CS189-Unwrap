@@ -3,7 +3,7 @@ import { onNavigate } from '../navigation';
 import { Ledger, type Evidence } from '../scoring';
 import type { Detector } from './context';
 import { watchRequests } from './requests';
-import { blockedByNativeValidation, isExplicitControl, looksClickable } from './signals';
+import { blockedByNativeValidation, isExplicitControl, looksClickable, watchSideEffects } from './signals';
 
 /** Controls whose response is a state change the DOM doesn't reflect (checked, focus, native picker). */
 const SELF_RESPONDING = 'input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]),textarea,select,label,[contenteditable]';
@@ -22,6 +22,7 @@ const SELF_RESPONDING = 'input:not([type="submit"]):not([type="button"]):not([ty
 export const deadClickDetector: Detector = ({ config, engine, transport, onTap }) => {
   const threshold = config.scoreThreshold.deadClick;
   const requests = watchRequests((url) => transport.isOwnRequest(url));
+  const effects = watchSideEffects();
   const pending = new Set<() => void>();
   const watching = new Set<Element>();
   const lastFired = new WeakMap<Element, number>();
@@ -100,9 +101,11 @@ export const deadClickDetector: Detector = ({ config, engine, transport, onTap }
     };
     const timer = setTimeout(() => {
       cleanup();
+      // A request that went out, a copy to the clipboard, a new window or focus moving to a field
+      // is the page responding, even if nothing on screen has changed.
       // A request that went out is the page working on it, even if nothing has changed yet.
       // If that request fails, the error detector reports it.
-      if (!changed && requests.since(tap.at).started === 0) {
+      if (!changed && requests.since(tap.at).started === 0 && !effects.since(tap.at, tap.target)) {
         report(target, { reason: 'no_response', waitedMs: config.deadClick.timeoutMs });
       }
     }, config.deadClick.timeoutMs);
@@ -113,5 +116,6 @@ export const deadClickDetector: Detector = ({ config, engine, transport, onTap }
     offTap();
     pending.forEach((fn) => fn());
     requests.stop();
+    effects.stop();
   };
 };

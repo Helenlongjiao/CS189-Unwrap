@@ -31,7 +31,22 @@ function isThirdPartyNoise(raw: unknown): boolean {
   }
 }
 
-const noise = (raw: unknown) => (isThirdPartyNoise(raw) ? { thirdParty: true } : {});
+/** The site's own analytics/logging endpoints. A failed beacon is invisible to the user. */
+const TELEMETRY_PATH = /\/(analytics|telemetry|beacon|collect|metrics|tracking|pixel|logging)(\/|\?|$)/i;
+
+function isTelemetryUrl(raw: unknown): boolean {
+  if (typeof raw !== 'string' || !raw) return false;
+  try {
+    return TELEMETRY_PATH.test(new URL(raw, location.href).pathname);
+  } catch {
+    return false;
+  }
+}
+
+const noise = (raw: unknown) => ({
+  ...(isThirdPartyNoise(raw) ? { thirdParty: true } : {}),
+  ...(isTelemetryUrl(raw) ? { telemetry: true } : {}),
+});
 
 /** Drops `?query` and `#hash` from each URL in a stack trace, keeping the `:line:column` after it. */
 function safeStack(stack: string): string {
@@ -50,13 +65,41 @@ function safeStack(stack: string): string {
  * Each error is scored: its kind sets the starting points (a crash or failed request outweighs a
  * console warning or a missing image); an error right after a click adds points that fade the
  * longer it takes to arrive; a failed write (POST, PUT, ...) adds more; browser warnings, errors
- * with no readable source, extension scripts and third-party trackers take points away.
- * Only an error that follows a click within `errorClickWindowMs` AND reaches
- * `scoreThreshold.error` may prompt; the rest are recorded with their score.
+ * with no readable source, extension scripts, third-party trackers, the site's own analytics
+ * endpoints and cancelled (aborted) requests take points away.
+ * Only an error that follows a user action within `errorClickWindowMs` AND reaches
+ * `scoreThreshold.error` may prompt; the rest are recorded with their score. A user action is a
+ * mouse click, or Enter / a form submit. A failed request is judged as of when it was sent, so a
+ * slow request still counts as caused by the click, and a background poll that was already
+ * running is not blamed on an unrelated click.
  */
 export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport, lastTap }) => {
   const seen = new Set<string>();
   let reporting = false;
+
+  /** What the user last did. A mouse click, or Enter / a form submit when no mouse was used. */
+  interface Action {
+    at: number;
+    target: Element;
+  }
+  let keyAction: Action | undefined;
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && e.target instanceof Element && e.target.tagName !== 'TEXTAREA') keyAction = { at: Date.now(), target: e.target };
+  };
+  const onSubmit = (e: Event) => {
+    if (e.target instanceof Element) keyAction = { at: Date.now(), target: e.target };
+  };
+  const currentAction = (): Action | undefined => {
+    const tap = lastTap();
+    if (tap && (!keyAction || tap.at >= keyAction.at)) return { at: tap.at, target: tap.target };
+    return keyAction;
+  };
+  /** Network errors are judged as of when the request was made, not when it finally failed. */
+  interface Origin {
+    at: number;
+    action: Action | undefined;
+  }
+  const originNow = (): Origin => ({ at: Date.now(), action: currentAction() });
 
   const scoreError = (err: CapturedError, now: number, tapAt: number | undefined, causedByClick: boolean) => {
     const evidence: Evidence[] = [{ id: `error-${err.kind}`, weight: BASE_POINTS[err.kind], at: now }];
@@ -68,24 +111,26 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
     if (BENIGN_MESSAGE.test(err.message)) evidence.push({ id: 'benign-browser-warning', weight: -60, at: now });
     if (err.message === 'Script error.') evidence.push({ id: 'unreadable-script-error', weight: -30, at: now });
     if (err.thirdParty) evidence.push({ id: 'third-party-source', weight: -50, at: now });
+    if (err.telemetry) evidence.push({ id: 'telemetry-endpoint', weight: -50, at: now });
+    if (err.aborted) evidence.push({ id: 'aborted-request', weight: -60, at: now });
     return explainScore(evidence, now, config.errorClickWindowMs);
   };
 
-  const report = (err: CapturedError) => {
+  const report = (err: CapturedError, origin?: Origin) => {
     if (reporting) return;
     reporting = true;
     try {
-      const tap = lastTap();
+      const now = origin?.at ?? Date.now();
+      const action = origin ? origin.action : currentAction();
       // Without limits, the same error counts again when a new click causes it.
-      const key = `${err.kind}:${err.message}${config.limits ? '' : `:${tap?.at ?? ''}`}`;
+      const key = `${err.kind}:${err.message}${config.limits ? '' : `:${action?.at ?? ''}`}`;
       if (seen.has(key)) return;
       seen.add(key);
       breadcrumbs.add('error', { kind: err.kind, message: err.message });
 
-      const now = Date.now();
-      const causedByClick = !!tap && now - tap.at <= config.errorClickWindowMs;
-      const element = causedByClick ? describe(findInteractive(tap!.target) ?? tap!.target) : undefined;
-      const { score, signals } = scoreError(err, now, tap?.at, causedByClick);
+      const causedByClick = !!action && now - action.at <= config.errorClickWindowMs;
+      const element = causedByClick ? describe(findInteractive(action!.target) ?? action!.target) : undefined;
+      const { score, signals } = scoreError(err, now, action?.at, causedByClick);
       const input = { element, context: { ...err, causedByClick, score, signals } };
       if (causedByClick && score >= config.scoreThreshold.error) engine.fire('error', input);
       else engine.record('error', input);
@@ -118,6 +163,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
     report({
       kind: 'promise',
       message: truncate(reason instanceof Error ? reason.message : String(reason), 300),
+      ...((reason as { name?: string } | null)?.name === 'AbortError' ? { aborted: true } : {}),
       stack: reason instanceof Error && reason.stack ? truncate(safeStack(reason.stack), 1000) : undefined,
     });
   };
@@ -137,15 +183,16 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
       const ours = transport.isOwnRequest(new URL(url, location.href).href);
+      const origin = originNow();
       try {
         const res = await originalFetch.call(window, input, init);
         if (!ours && res.status >= 500) {
-          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed with ${res.status}`, method, url: safeUrl(url), status: res.status, ...noise(new URL(url, location.href).href) });
+          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed with ${res.status}`, method, url: safeUrl(url), status: res.status, ...noise(new URL(url, location.href).href) }, origin);
         }
         return res;
       } catch (err) {
         if (!ours && !(err instanceof DOMException && err.name === 'AbortError')) {
-          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed (no response)`, method, url: safeUrl(url), status: 0, ...noise(new URL(url, location.href).href) });
+          report({ kind: 'network', message: `${method} ${safeUrl(url)} failed (no response)`, method, url: safeUrl(url), status: 0, ...noise(new URL(url, location.href).href) }, origin);
         }
         throw err;
       }
@@ -161,6 +208,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
   } as typeof xhrProto.open;
   xhrProto.send = function (this: XMLHttpRequest & { __pulse?: { method: string; url: string } }, body?: Document | XMLHttpRequestBodyInit | null) {
     const info = this.__pulse;
+    const origin = originNow();
     if (info && !transport.isOwnRequest(new URL(info.url, location.href).href)) {
       this.addEventListener('loadend', () => {
         if (this.status === 0 || this.status >= 500) {
@@ -172,7 +220,7 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
             url: safeUrl(info.url),
             status,
             ...noise(new URL(info.url, location.href).href),
-          });
+          }, origin);
         }
       });
     }
@@ -181,10 +229,14 @@ export const errorDetector: Detector = ({ config, engine, breadcrumbs, transport
 
   window.addEventListener('error', onError, true);
   window.addEventListener('unhandledrejection', onRejection);
+  document.addEventListener('keydown', onKey, true);
+  document.addEventListener('submit', onSubmit, true);
 
   return () => {
     window.removeEventListener('error', onError, true);
     window.removeEventListener('unhandledrejection', onRejection);
+    document.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('submit', onSubmit, true);
     console.error = originalConsoleError;
     if (originalFetch) window.fetch = originalFetch;
     xhrProto.open = originalOpen;

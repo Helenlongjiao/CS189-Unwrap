@@ -41,11 +41,11 @@ export function setup(detector: Detector, overrides: Partial<PulseOptions> = {})
 }
 
 export function click(el: Element, x = 10, y = 10) {
-  el.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y }));
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
 }
 
 export function pointerdown(el: Element, x = 10, y = 10) {
-  el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: x, clientY: y }));
+  el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
 }
 
 export function type(input: HTMLInputElement, value: string) {
