@@ -2,7 +2,8 @@ import { describe, findDisabled, findInteractive, isInsidePulse } from '../dom';
 import { onNavigate } from '../navigation';
 import { Ledger, type Evidence } from '../scoring';
 import type { Detector } from './context';
-import { blockedByNativeValidation, isExplicitControl } from './signals';
+import { watchRequests } from './requests';
+import { blockedByNativeValidation, isExplicitControl, looksClickable } from './signals';
 
 /** Controls whose response is a state change the DOM doesn't reflect (checked, focus, native picker). */
 const SELF_RESPONDING = 'input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]),textarea,select,label,[contenteditable]';
@@ -18,8 +19,9 @@ const SELF_RESPONDING = 'input:not([type="submit"]):not([type="button"]):not([ty
  * adds points that fade over a few minutes. Only a score at or above `scoreThreshold.deadClick`
  * prompts; the rest is recorded with its score.
  */
-export const deadClickDetector: Detector = ({ config, engine, onTap }) => {
+export const deadClickDetector: Detector = ({ config, engine, transport, onTap }) => {
   const threshold = config.scoreThreshold.deadClick;
+  const requests = watchRequests((url) => transport.isOwnRequest(url));
   const pending = new Set<() => void>();
   const watching = new Set<Element>();
   const lastFired = new WeakMap<Element, number>();
@@ -36,6 +38,7 @@ export const deadClickDetector: Detector = ({ config, engine, onTap }) => {
     if (context.reason === 'disabled') add('disabled', 60);
     else add('no-response', 35);
     if (isExplicitControl(target)) add('explicit-control', 15);
+    else if (looksClickable(target)) add('styled-clickable', 15);
     if (context.reason !== 'disabled' && blockedByNativeValidation(target)) add('native-validation', -35);
 
     const result = ledger.score(now, evidence);
@@ -97,7 +100,11 @@ export const deadClickDetector: Detector = ({ config, engine, onTap }) => {
     };
     const timer = setTimeout(() => {
       cleanup();
-      if (!changed) report(target, { reason: 'no_response', waitedMs: config.deadClick.timeoutMs });
+      // A request that went out is the page working on it, even if nothing has changed yet.
+      // If that request fails, the error detector reports it.
+      if (!changed && requests.since(tap.at).started === 0) {
+        report(target, { reason: 'no_response', waitedMs: config.deadClick.timeoutMs });
+      }
     }, config.deadClick.timeoutMs);
     pending.add(cleanup);
   });
@@ -105,5 +112,6 @@ export const deadClickDetector: Detector = ({ config, engine, onTap }) => {
   return () => {
     offTap();
     pending.forEach((fn) => fn());
+    requests.stop();
   };
 };

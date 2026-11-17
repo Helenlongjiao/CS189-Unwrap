@@ -33,6 +33,12 @@ export interface Scenario {
   what: string;
   html: string;
   prepare?: () => void;
+  /**
+   * Held-out scenarios were written after the detector weights were tuned and are never used to
+   * tune them. They are reported separately and do not gate CI, so they show how the detectors
+   * do on pages they were not fitted to.
+   */
+  heldOut?: boolean;
   play: (api: Api) => Promise<void>;
 }
 
@@ -220,6 +226,67 @@ export const scenarios: Scenario[] = [
     play: async ({ $, burst, tick }) => {
       await burst($('#book'), 2, 80);
       await tick(1000);
+    },
+  },
+
+  // Added after the 2026-11 meeting: rage clicks are a page-break signal that needs layers of
+  // evidence (page response, failed or missing requests, 5+ clicks, mouse movement).
+  {
+    id: 'rage-failed-request-with-error-message',
+    detector: 'rage_click',
+    source: 'Skyline Air · Checkout',
+    expect: 'prompt',
+    what: 'Clicks "Submit" three times; the request fails and the page shows an error message',
+    html: '<button type="button" id="submit">Submit</button><div id="msg"></div>',
+    prepare: () => {
+      stubFetch(() => fail(500));
+      document.getElementById('submit')!.addEventListener('click', async () => {
+        const res = await window.fetch('/api/submit', { method: 'POST' });
+        if (!res.ok) document.getElementById('msg')!.textContent = 'Something went wrong. Try again.';
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#submit'), 3, 150);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'rage-up-arrow-with-request',
+    detector: 'rage_click',
+    source: 'Northline · Product',
+    expect: 'quiet',
+    what: 'Taps a quantity up-arrow quickly; each tap saves to the server and the number goes up',
+    html: '<button type="button" id="up" aria-label="Increase quantity">▲</button><span id="qty">1</span>',
+    prepare: () => {
+      stubFetch(() => ok());
+      document.getElementById('up')!.addEventListener('click', async () => {
+        await window.fetch('/api/cart/qty', { method: 'POST' });
+        const qty = document.getElementById('qty')!;
+        qty.textContent = String(Number(qty.textContent) + 1);
+      });
+    },
+    play: async ({ $, burst, tick }) => {
+      await burst($('#up'), 5, 90);
+      await tick(1000);
+    },
+  },
+  {
+    id: 'dead-slow-request',
+    detector: 'dead_click',
+    source: 'Linden Clinic · Billing',
+    expect: 'quiet',
+    what: 'Clicks "Save"; it sends a request and the page only updates two seconds later',
+    html: '<button type="button" id="save">Save</button><p id="status"></p>',
+    prepare: () => {
+      stubFetch(() => ok());
+      document.getElementById('save')!.addEventListener('click', async () => {
+        await window.fetch('/api/save', { method: 'POST' });
+        setTimeout(() => (document.getElementById('status')!.textContent = 'Saved'), 2000);
+      });
+    },
+    play: async ({ $, click, tick }) => {
+      click($('#save'));
+      await tick(1500);
     },
   },
 
@@ -1088,5 +1155,10 @@ export const scenarios: Scenario[] = [
     },
   },
 ];
+
+/** Scenarios used to tune the detectors and gate CI. */
+export const ciScenarios = scenarios.filter((s) => !s.heldOut);
+/** Scenarios written after tuning; reported separately and never gate CI. */
+export const heldOutScenarios = scenarios.filter((s) => s.heldOut);
 
 export { ENDPOINT };
